@@ -1,3 +1,4 @@
+
 /* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -45,10 +46,6 @@ static inline void signal_event(struct kgsl_device *device,
 static void _kgsl_event_worker(struct work_struct *work)
 {
 	struct kgsl_event *event = container_of(work, struct kgsl_event, work);
-	int id = KGSL_CONTEXT_ID(event->context);
-
-	trace_kgsl_fire_event(id, event->timestamp, event->result,
-		jiffies - event->created, event->func);
 
 	event->func(event->device, event->group, event->priv, event->result);
 
