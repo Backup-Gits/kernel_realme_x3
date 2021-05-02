@@ -91,7 +91,57 @@
 &qupv3_se4_i2c {
 	status = "ok";
 };
+/*liuchao@BSP.TP.Function, 2019/11/27, add for novatek noflash TP*/
+&qupv3_se17_spi {
+	/* Himax device tree node */
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	
+	novatek@0 {
+		compatible = "novatek,nf_nt36672c";
+		reg = <0>;
+		chip-name = "NT36672C_NF";
+		status = "ok";
 
+		spi-max-frequency = <15000000>; //4800000,9600000,15000000,19200000
+		reset-gpio = <&tlmm 54 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <122 0x0>;
+		irq-gpio = <&tlmm 122 0x2002>;
+		/*lcd-reset-gpio = <&tlmm 56 0x00>;*/
+		tp-cs-gpio = <&tlmm 58 0x01>;
+		touchpanel,tx-rx-num = <18 36>;
+		touchpanel,max-num-support = <10>;
+		touchpanel,panel-coords = <1080 2400>;
+		touchpanel,display-coords = <1080 2400>;
+		touchpanel,touchmajor-limit = <0 54>;
+
+		pinctrl-names = "default", "suspend";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+
+		incell_screen;
+		fw_edge_limit_support;
+		black_gesture_support;
+		charger_pump_support;
+		headset_pump_support;
+		esd_handle_support;
+		//spurious_fingerprint_support;
+		//lcd_trigger_fp_check;
+		black_gesture_test_support;
+		noflash_support;
+		smart_gesture_support;
+		new_set_irq_wake_support;
+		pressure_report_support;
+		fw_update_app_support;
+		game_switch_support;
+		drlimit_remove_support;
+		lcd_trigger_load_tp_fw_support;
+		//fw_update_in_probe_with_headfile;
+		touchpanel,button-type = <4>;
+	};
+};
 
 //#ifdef VENDOR_EDIT//Fanhong.Kong@ProDrv.CHG,add 2018/10/25 for vib aw8697
 &qupv3_se7_i2c  {
@@ -115,25 +165,9 @@
 	gpio_keys {
 		compatible = "gpio-keys";
 		label = "gpio-keys";
-
 		pinctrl-names = "default";
-		/*ifdef VENDOR_EDIT*/
-		//Added by wanghao@Bsp.Group.Tp for volkey,2018-11-01
-		pinctrl-0 = <&key_vol_up_default &key_vol_down_default>;
-		//#endif
+		pinctrl-0 = <&key_vol_down_default>;
 
-		vol_up {
-			label = "volume_up";
-			gpios = <&pm8150_gpios 6 GPIO_ACTIVE_LOW>;
-			linux,input-type = <1>;
-			linux,code = <KEY_VOLUMEUP>;
-			gpio-key,wakeup;
-			debounce-interval = <15>;
-			linux,can-disable;
-		};
-
-		/*ifdef VENDOR_EDIT*/
-		//Added by Tong.han@Bsp.Group.Tp for device-info,2015-4-13
 		vol_down {
 			label = "volume_down";
 			gpios = <&pm8150_gpios 7 GPIO_ACTIVE_LOW>;
@@ -143,8 +177,31 @@
 			debounce-interval = <15>;
 			linux,can-disable;
 		};
-		/*endif*/
 	};
+
+	//add by zhengzhiwei@RM.BSP.Sensors
+	//oppo_alsps start
+	oppo_sensor {
+		status = "ok";
+		compatible = "sensor-devinfo";
+		ps-match-id = <1>; //stk33502 bit[0]
+		als-match-id = <1>; //stk33502 bit[0]
+		als-type = <1>; //1-normal;2-under screen;3-normal needed compensation;8/9 only for sm8250, differ ulti/norm rgb para
+		ps-type = <1>; //1-normal
+		ps-cali-type = <1>; //SOFTWARE_CAIL
+		is-unit-device = <1>; //1-alsps unit device;0-separate device
+		is-als-dri = <0>; //0-polling;1-irq
+		irq-number = <120>;
+		bus-number = <3>;
+		als-factor = <1000>;
+		ak-msensor-dir = <0>;
+		mx-msensor-dir = <0>;
+		st-gsensor-dir = <1>;
+		bs-gsensor-dir = <0>;
+		als-row-coe = <110>;
+	};
+	//oppo_alsps end
+
 //#ifdef VENDOR_EDIT
 //delete because this GPIO used for motor
 //	qcom,qbt1000 {
@@ -166,10 +223,10 @@
                 pinctrl-names = "default";
                 pinctrl-0 = <&gpio_id2_default>;
                 goodix_optical {
-                        oppo,fp-id = <1>; /* fp id mapping table */
+                        oppo,fp-id = <0>; /* fp id mapping table */
                         vendor-chip = <11>; /* please refer to the struct fp_vendor_t in oppo_fp_commmon.n */
                         eng-menu = "-1,-1"; /* represents SNR, inclination test item in engineer menu, and 0/1 means off/on */
-                        chip-name = "G_OPTICAL_G3";  /* /proc/fp_id, will be displayed in engineer menu  */
+                        chip-name = "G_3626ZS2";  /* /proc/fp_id, will be displayed in engineer menu  */
 		};
 	};
 
@@ -178,26 +235,30 @@
 	        status = "ok";
 	        compatible = "goodix,goodix_fp";
 	        interrupt-parent = <&tlmm>;
-                interrupts = <118 0>;
-	        goodix,gpio_irq = <&tlmm 118 0x1>;
-	        goodix,gpio_reset = <&tlmm 121 0x0>;
-	        goodix,goodix_pwr = <&tlmm 101 0x0>;
-	        ldo7-supply = <&L7P>;  // pm660l_l5 for goodix_fp
-	        ldo-config = <3300000 3300000 150000>;
+		interrupts = <118 0>;
+
+		ldo-supply = <&pm8150l_l9>; // pm660l_l5 for goodix_fp 
+		ldo-config = <3300000 3300000 150000>;
+
+		gpio-power = <&pm8150_gpios 9 GPIO_ACTIVE_LOW>;
+		goodix,gpio_irq = <&tlmm 118 0x1>;
+		goodix,gpio_reset = <&tlmm 121 0x0>;
 		pinctrl-names = "default";
-	        pinctrl-0 = <&gpio_goodix_irq_default>;
-                power-num = <2>;
+		pinctrl-0 = <&gpio_goodix_irq_default>;
+		pinctrl-1 = <&goodix_pwr_default>;
+
+		power-num = <2> ;
 		power_source_1 {
 			power-mode = <1>;   /* 1 = ldo power, refer to oppo_fp_common.h*/
-			power-name = "ldo7";
+			power-name = "ldo";
 			power-config = "ldo-config";
 			delay-time = <0>;
 		};
-                power_source_2 {
-                        power-mode = <2>;
-                        power-name = "goodix,goodix_pwr";
-                        delay-time = <0>;
-                };
+		power_source_2 {
+			power-mode = <2>;   /* 2 = gpio power, refer to oppo_fp_common.h */
+			power-name = "gpio-power";
+			delay-time = <0>;
+		};
 	};
 	//#endif /*VENDOR_EDIT*/
 
@@ -225,10 +286,10 @@
 		compatible = "oppo,rf_cable";
 		interrupt-parent = <&tlmm>;
 		rf,cable0-gpio = <&tlmm 26 0>;
-		rf,cable1-gpio = <&tlmm 41 0>;
 		rf,cable-support-timer = <0>;
 		pinctrl-names = "rf_cable_active";
-		pinctrl-0 = <&rf_cable0_active &rf_cable1_active>;
+		pinctrl-0 = <&rf_cable0_active>;
+		rf_cable_0_support;
 	};
 	//#endif /* VENDOR_EDIT */
 };
@@ -436,6 +497,23 @@
 		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
 					&nfc_clk_req_suspend>;
 	};
+
+//#ifdef VENDOR_EDIT
+// Jinzhu.Han@MM.Display.LCD.Machine 2019-10-14 add nodes for backlight and lcd power
+	ti_lm3697_bl@36 {
+		compatible = "lm3697";
+		reg = <0x36>;
+		ti,bl-enable-gpio = <&pm8150l_gpios 11 0>;
+	};
+
+	ti_tps65132_pw@3e {
+		compatible = "tps65132";
+		reg = <0x3e>;
+		status = "okay";
+		enp-gpio = <&pm8150l_gpios 2 0>;
+		enn-gpio = <&pm8150l_gpios 1 0>;
+	};
+//#endif
 };
 //#else /* VENDOR_EDIT */
 /*&qupv3_se9_i2c {
@@ -556,15 +634,16 @@
 		label = "vph_pwr";
 		qcom,pre-scaling = <1 3>;
 	};
-
-	wp_therm {
-		reg = <ADC_AMUX_THM1_PU2>;
-		label = "wp_therm";
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-		qcom,pre-scaling = <1 1>;
-	};
-
+//#ifdef VENDOR_EDIT
+//OuYangBaiLi@BSP.CHG.Basic,charging_bsp 2020/03/04,delete for thermal 19696 
+//	wp_therm {
+//		reg = <ADC_AMUX_THM1_PU2>;
+//		label = "wp_therm";
+//		qcom,ratiometric;
+//		qcom,hw-settle-time = <200>;
+//		qcom,pre-scaling = <1 1>;
+//	};
+//#endif /* VENDOR_EDIT */
 	vcoin {
 		reg = <ADC_VCOIN>;
 		label = "vcoin";
@@ -624,24 +703,27 @@
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
 	};
+//#ifdef VENDOR_EDIT
+// OuYangBaiLi@BSP.CHG.Basic,charging_bsp 2020/03/04,modify for thermal 19696 
+//	skin_therm {
+//		reg = <ADC_AMUX_THM1_PU2>;
+//		label = "skin_therm";
+//		qcom,ratiometric;
+//		qcom,hw-settle-time = <200>;
+//		qcom,pre-scaling = <1 1>;
+//	};
 
-	skin_therm {
-		reg = <ADC_AMUX_THM1_PU2>;
-		label = "skin_therm";
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-		qcom,pre-scaling = <1 1>;
-	};
-
-	pa_therm1 {
+	pm8150_amux2 {
 		reg = <ADC_AMUX_THM2_PU2>;
-		label = "pa_therm1";
+		label = "pm8150_amux2";
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
 	};
 };
-
+//#endif /* VENDOR_EDIT */
+//#ifdef VENDOR_EDIT
+// OuYangBaiLi@BSP.CHG.Basic,charging_bsp 2020/03/04,modify for thermal 19696 
 &pm8150l_vadc {
 	vph_pwr {
 		reg = <ADC_VPH_PWR>;
@@ -649,9 +731,9 @@
 		qcom,pre-scaling = <1 3>;
 	};
 
-	camera_flash_therm {
+	skin_therm {
 		reg = <ADC_AMUX_THM1_PU2>;
-		label = "camera_flash_therm";
+		label = "skin_therm";
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
@@ -665,15 +747,15 @@
 		qcom,pre-scaling = <1 1>;
 	};
 
-	pa_therm2 {
+	pa_therm1 {
 		reg = <ADC_AMUX_THM3_PU2>;
-		label = "pa_therm2";
+		label = "pa_therm1";
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
 	};
 };
-
+//#endif /* VENDOR_EDIT */
 &wil6210 {
 	status = "ok";
 };
@@ -681,15 +763,18 @@
 &mhi_0 {
 	mhi,fw-name = "debug.mbn";
 };
-
+//#ifdef VENDOR_EDIT
+// OuYangBaiLi@BSP.CHG.Basic,charging_bsp 2020/03/04,modify for thermal 19696
 &pm8150b_adc_tm {
-	wp_therm {
-		reg = <ADC_AMUX_THM1_PU2>;
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-	};
+//	wp_therm {
+//		reg = <ADC_AMUX_THM1_PU2>;
+//		qcom,ratiometric;
+//		qcom,hw-settle-time = <200>;
+//	};
 };
-
+//#endif /* VENDOR_EDIT */
+//#ifdef VENDOR_EDIT
+// OuYangBaiLi@BSP.CHG.Basic,charging_bsp 2020/03/04,modify for thermal 19696 
 &pm8150_adc_tm {
 	xo_therm {
 		reg = <ADC_XO_THERM_PU2>;
@@ -697,21 +782,23 @@
 		qcom,hw-settle-time = <200>;
 	};
 
-	skin_therm {
-		reg = <ADC_AMUX_THM1_PU2>;
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-	};
+//	skin_therm {
+//		reg = <ADC_AMUX_THM1_PU2>;
+//		qcom,ratiometric;
+//		qcom,hw-settle-time = <200>;
+//	};
 
-	pa_therm1 {
+	pm8150_amux2 {
 		reg = <ADC_AMUX_THM2_PU2>;
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 	};
 };
-
+//#endif /* VENDOR_EDIT */
+//#ifdef VENDOR_EDIT
+// OuYangBaiLi@BSP.CHG.Basic,charging_bsp 2020/03/04,modify for thermal 19696 
 &pm8150l_adc_tm {
-	camera_flash_therm {
+	skin_therm {
 		reg = <ADC_AMUX_THM1_PU2>;
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
@@ -723,28 +810,30 @@
 		qcom,hw-settle-time = <200>;
 	};
 
-	pa_therm2 {
+	pa_therm1 {
 		reg = <ADC_AMUX_THM3_PU2>;
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 	};
 };
-
+//#endif /* VENDOR_EDIT */
+//#ifdef VENDOR_EDIT
+// OuYangBaiLi@BSP.CHG.Basic,charging_bsp 2020/03/04,modify for thermal 19696 
 &thermal_zones {
-	wp-therm {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-governor = "user_space";
-		thermal-sensors = <&pm8150b_adc_tm ADC_AMUX_THM1_PU2>;
-		wake-capable-sensor;
-		trips {
-			active-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-		};
-	};
+//	wp-therm {
+//		polling-delay-passive = <0>;
+//		polling-delay = <0>;
+//		thermal-governor = "user_space";
+//		thermal-sensors = <&pm8150b_adc_tm ADC_AMUX_THM1_PU2>;
+//		wake-capable-sensor;
+//		trips {
+//			active-config0 {
+//				temperature = <125000>;
+//				hysteresis = <1000>;
+//				type = "passive";
+//			};
+//		};
+//	};
 
 	xo-therm {
 		polling-delay-passive = <0>;
@@ -765,7 +854,7 @@
 		polling-delay-passive = <50>;
 		polling-delay = <200>;
 		thermal-governor = "step_wise";
-		thermal-sensors = <&pm8150_adc_tm ADC_AMUX_THM1_PU2>;
+		thermal-sensors = <&pm8150l_adc_tm ADC_AMUX_THM1_PU2>;
 		/* #ifdef VENDOR_EDIT */
 		temp-track;
 		/* #endif */
@@ -794,7 +883,7 @@
 		};
 	};
 
-	pa-therm1 {
+	pm8150-amux2 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
@@ -809,20 +898,20 @@
 		};
 	};
 
-	camera-flash-therm {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-governor = "user_space";
-		thermal-sensors = <&pm8150l_adc_tm ADC_AMUX_THM1_PU2>;
-		wake-capable-sensor;
-		trips {
-			active-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-		};
-	};
+//	camera-flash-therm {
+//		polling-delay-passive = <0>;
+//		polling-delay = <0>;
+//		thermal-governor = "user_space";
+//		thermal-sensors = <&pm8150l_adc_tm ADC_AMUX_THM1_PU2>;
+//		wake-capable-sensor;
+//		trips {
+//			active-config0 {
+//				temperature = <125000>;
+//				hysteresis = <1000>;
+//				type = "passive";
+//			};
+//		};
+//	};
 
 	skin-msm-therm {
 		polling-delay-passive = <0>;
@@ -839,7 +928,7 @@
 		};
 	};
 
-	pa-therm2 {
+	pa-therm1 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
@@ -854,7 +943,7 @@
 		};
 	};
 };
-
+//#endif /* VENDOR_EDIT */
 &pm8150b_charger {
 	qcom,sec-charger-config = <3>;
 	qcom,auto-recharge-soc = <98>;
@@ -866,8 +955,8 @@
 		      <&pm8150b_vadc ADC_CHG_TEMP>,
 		      <&pm8150b_vadc ADC_USB_IN_V_16>,
 			  <&pm8150b_vadc ADC_GPIO3>,
-			  <&pm8150b_vadc ADC_AMUX_THM4_PU2>,
-			  <&pm8150b_vadc ADC_GPIO2_PU2>;
+			  <&pm8150b_vadc ADC_AMUX_THM4>,
+			  <&pm8150b_vadc ADC_GPIO2>;
 //#else
 		      //<&pm8150b_vadc ADC_CHG_TEMP>,
 		      //<&pm8150b_vadc ADC_USB_IN_V_16>;
@@ -940,6 +1029,7 @@
 
 //#ifdef VENDOR_EDIT
 //Zengpeng.Chen@BSP.group 2018-11-02 add for touchpanel
+#if 0
 &qupv3_se17_i2c  {
 	status = "okay";
 	synaptics19081@20 {
@@ -987,7 +1077,7 @@
 		touchpanel.button-TRx = <0 0>;
 	};
 };
-
+#endif
 &pm8150l_gpios {
 	touchpanel_1v8_enable{
 		enable_1v8_gpio: enable_1v8_gpio {
@@ -1048,190 +1138,25 @@
 		qcom,drive-strength = <3>; //LOW strength
 		//drive-push-pull;//CMOS
 	};
-	mps_otg_en_active: mps_otg_en_active {
-			pins = "gpio4"; /* GPIO 4 */
-			function = "normal"; /* normal */
-			bias-disable; //No Pull
-			power-source = <1>;//VIN1 1.8
-			output-high; //digital output, no invert
-			qcom,drive-strength = <3>; //LOW strength
-			//drive-push-pull;//CMOS
-		};
-		mps_otg_en_sleep: mps_otg_en_sleep {
-			pins = "gpio4"; /* GPIO 4 */
-			function = "normal"; /* normal */
-			bias-disable; //No Pull
-			power-source = <1>;//VIN1 1.8
-			output-low; //digital output, no invert
-			qcom,drive-strength = <3>; //LOW strength
-			//drive-push-pull;//CMOS
-		};
-		mps_otg_en_default: mps_otg_en_default {
-			pins = "gpio4"; /* GPIO 4 */
-			function = "normal"; /* normal */
-			bias-disable; //No Pull
-			power-source = <1>;//VIN1 1.8
-			output-low; //digital output, no invert
-			qcom,drive-strength = <3>; //LOW strength
-			//drive-push-pull;//CMOS
-		};
 };
-
-&pm8150l_gpios {
-
-		otg_en_active: otg_en_active {
-			pins = "gpio10"; /* GPIO 10 */
-			function = "normal"; /* normal */
-			bias-disable; //No Pull
-			power-source = <1>;//VIN1 1.8
-			output-high; //digital output, no invert
-			qcom,drive-strength = <3>; //LOW strength
-			//drive-push-pull;//CMOS
-		};
-		otg_en_sleep: otg_en_sleep {
-			pins = "gpio10"; /* GPIO 10 */
-			function = "normal"; /* normal */
-			bias-disable; //No Pull
-			power-source = <1>;//VIN1 1.8
-			output-low; //digital output, no invert
-			qcom,drive-strength = <3>; //LOW strength
-			//drive-push-pull;//CMOS
-		};
-		otg_en_default: otg_en_default {
-			pins = "gpio10"; /* GPIO 10 */
-			function = "normal"; /* normal */
-			bias-pull-low; // Pull down
-			power-source = <1>;//VIN1 1.8
-			input-enable; //digital output, no invert
-			qcom,drive-strength = <3>; //LOW strength
-			//drive-push-pull;//CMOS
-		};
-	};
 //#endif
 
-//#ifdef VENDOR_EDIT /* Jianchao.Shi@BSP.CHG.Basic, 2016/12/20, sjc Add for charging */
-&qupv3_se1_i2c {
-	status = "okay";
-	qcom,clk-freq-out = <400000>;
-
-	mp2650-charger@5c {
-		status = "okay";
-		compatible = "oppo,mp2650-charger";
-		reg = <0x5c 0>;
-
-		qcom,mps_otg_en-gpio = <&pm8150_gpios 4 0x00>;
-		pinctrl-names = "mps_otg_en_active", "mps_otg_en_sleep", "mps_otg_en_default";
-		pinctrl-0 = <&mps_otg_en_active>;
-		pinctrl-1 = <&mps_otg_en_sleep>;
-		pinctrl-2 = <&mps_otg_en_default>;
-
+/* #ifdef VENDOR_EDIT */
+/* oujinrong@BSP.Fingerprint.Basic 2019/07/30, add for gpio of fingerprint */
+&pm8150_gpios {
+	goodix_pwr {
+		goodix_pwr_default: goodix_pwr_default {
+			pins = "gpio9";
+			function = "normal";
+			bias-disable; /* No Pull */
+			power-source = <1>; /* VIN1 */
+			output-low; /* digital output, no invert */
+			input-disable; /* prevent GPIO from being set to DIO */
+		};
 	};
 };
+/* #endif */
 
-//#ifdef VENDOR_EDIT /* Jianchao.Shi@BSP.CHG.Basic, 2016/12/20, sjc Add for charging */
-&qupv3_se15_i2c {
-	status = "okay";
-	
-	///qcom,clk-freq-out = <100000>;
-
-//#ifdef VENDOR_EDIT//Fanhong.Kong@ProDrv.CHG,add 2018/04/20 for SVOOC
-	//bq25882-charger@6b {
-	//	status = "okay";
-	//	compatible = "oppo,bq25882-charger";
-	//	reg = <0x6b 0>;
-	//};
-	da9313-divider@68 {
-		status = "okay";
-		compatible = "oppo,da9313-divider";
-		reg = <0x68 0>;
-	};
-//#endif /*VENDOR_EDIT*/
-	bq27541-battery@55 {
-		status = "okay";
-		compatible = "oppo,bq27541-battery";
-		reg = <0x55>;
-		qcom,modify-soc-smooth;
-		qcom,batt_bq28z610;
-	};
-
-	oppo_short-ic@58 {
-		status = "okay";
-		compatible = "oppo,oppo_short-ic";
-		reg = <0x58>;
-		qcom,modify-soc-smooth;
-	};
-
-	stm8s_fastcg@26{
-		status = "okay";
-		compatible = "oppo,stm8s-fastcg";
-		reg = <0x26>;
-		qcom,vooc-low-temp = <120>;
-		qcom,oppo_batt_4400mv;
-		qcom,support_vooc_by_normal_charger_path;
-		qcom,vooc_fw_update_newmethod;
-		///qcom,vooc-fw-type = <0x22>;//5A
-		qcom,vooc-high-temp = <430>;
-		qcom,vooc-low-soc = <1>;
-		qcom,vooc-high-soc = <90>;
-		qcom,vooc-fw-type = <0x22>;//5A
-		qcom,vooc_multistep_adjust_current_support;
-		qcom,vooc_multistep_initial_batt_temp = <320>;
-		qcom,vooc_strategy_normal_current = <0x06>;
-		
-		qcom,vooc_strategy1_batt_high_temp0 = <425>;
-		qcom,vooc_strategy1_batt_high_temp1 = <430>;
-		qcom,vooc_strategy1_batt_high_temp2 = <435>;
-		qcom,vooc_strategy1_batt_low_temp2 = <420>;
-		qcom,vooc_strategy1_batt_low_temp1 = <415>;
-		qcom,vooc_strategy1_batt_low_temp0 = <400>;
-
-		qcom,vooc_strategy1_high_current0 = <0x04>;//4A
-		qcom,vooc_strategy1_high_current1 = <0x03>;//3A
-		qcom,vooc_strategy1_high_current2 = <0x02>;//2A
-		qcom,vooc_strategy1_low_current2 = <0x03>;//3A
-		qcom,vooc_strategy1_low_current1 = <0x04>;//4A
-		qcom,vooc_strategy1_low_current0 = <0x04>;//4A
-		
-		qcom,vooc_strategy2_batt_up_temp1 = <375>;
-		qcom,vooc_strategy2_batt_up_down_temp2 = <380>;
-		qcom,vooc_strategy2_batt_up_temp3 = <390>;
-		qcom,vooc_strategy2_batt_up_down_temp4 = <400>;
-		qcom,vooc_strategy2_batt_up_temp5 = <410>;
-		qcom,vooc_strategy2_batt_up_temp6 = <415>;
-		qcom,vooc_strategy2_high0_current = <0x05>;
-		qcom,vooc_strategy2_high1_current = <0x04>;
-		qcom,vooc_strategy2_high2_current = <0x03>;
-		qcom,vooc_strategy2_high3_current = <0x02>;
-
-		pinctrl-names = "switch1_act_switch2_act", "switch1_sleep_switch2_sleep",
-						"switch1_act_switch3_act", "switch1_sleep_switch3_sleep",
-						"switch1_act_switch2_sleep", "switch1_sleep_switch2_act",
-						"clock_active","clock_sleep",
-						"data_active","data_sleep",
-						"reset_active","reset_sleep";
-		pinctrl-0 = <&charging_switch1_active>;
-		pinctrl-1 = <&charging_switch1_sleep >;
-		pinctrl-2 = <&charging_switch1_active>;
-		pinctrl-3 = <&charging_switch1_sleep >;
-		pinctrl-4 = <&charging_switch1_active>;
-		pinctrl-5 = <&charging_switch1_sleep>;
-		pinctrl-6 = <&charging_clock_active >;
-		pinctrl-7 = <&charging_clock_sleep >;
-		pinctrl-8 = <&charging_data_active >;
-		pinctrl-9 = <&charging_data_sleep >;
-		pinctrl-10 = <&charging_reset_active >;
-		pinctrl-11 = <&charging_reset_sleep >;
-
-		qcom,charging_switch1-gpio = <&tlmm 59 0x00>;
-		//qcom,charging_switch2-gpio = <&tlmm 113 0x00>;
-		//qcom,charging_switch3-gpio = <&tlmm 38 0x00>;
-
-		qcom,charging_reset-gpio = <&tlmm 131 0x00>;
-		qcom,charging_clock-gpio = <&tlmm 92 0x00>;
-		qcom,charging_data-gpio = <&tlmm 93 0x00>;
-	};
-
-};
 
 /*zhixian.Mai@camera, 2019/06/21, Add for pm8008 driver*/
 &pm8150l_gpios {
@@ -1322,13 +1247,13 @@
 
 &L1Q {
 	regulator-min-microvolt = <1100000>;
-	regulator-max-microvolt = <1100000>;
+	regulator-max-microvolt = <1200000>;
 	qcom,min-dropout-voltage = <100000>;
 };
 
 &L2Q {
 	regulator-min-microvolt = <1050000>;
-	regulator-max-microvolt = <1050000>;
+	regulator-max-microvolt = <1200000>;
 	qcom,min-dropout-voltage = <100000>;
 };
 
@@ -1338,8 +1263,8 @@
 };
 
 &L4Q {
-	regulator-min-microvolt = <1800000>;
-	regulator-max-microvolt = <1800000>;
+	regulator-min-microvolt = <2800000>;
+	regulator-max-microvolt = <2800000>;
 };
 
 &L5Q {

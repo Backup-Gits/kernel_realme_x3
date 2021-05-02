@@ -17,6 +17,7 @@
 	#size-cells = <1>;
 	lmh_dcvs0: qcom,limits-dcvs@18358800 {
 		compatible = "qcom,msm-hw-limits";
+		qcom,plat-mitigation-disable;
 		interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,affinity = <0>;
 		/* #ifdef VENDOR_EDIT */
@@ -29,6 +30,7 @@
 
 	lmh_dcvs1: qcom,limits-dcvs@18350800 {
 		compatible = "qcom,msm-hw-limits";
+		qcom,plat-mitigation-disable;
 		interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,affinity = <1>;
 		/* #ifdef VENDOR_EDIT */

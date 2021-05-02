@@ -31,7 +31,7 @@
 	compatible = "qcom,sm8150-mtp", "qcom,sm8150", "qcom,mtp";
 	qcom,board-id = <8 0>;
 	/*oppo,prjversion. first one is the count of projects*/
-	oppo,prjversion = <1 19781>;
+	oppo,prjversion = <1 19696>;
 };
 
 &dsi_sharp_4k_dsc_cmd_display {

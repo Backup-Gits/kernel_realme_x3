@@ -33,16 +33,6 @@
 
 /*ifdef VENDOR_EDIT*/
 //Added by Tong.han@Bsp.Group.Tp for device-info,2015-4-13
-	key_vol_up {
-		key_vol_up_default: key_vol_up_default {
-			pins = "gpio6";
-			function = "normal";
-			input-enable;
-			bias-disable;
-			power-source = <1>;
-		};
-	};
-
 	key_vol_down {
 		key_vol_down_default: key_vol_down_default {
 			pins = "gpio7";
