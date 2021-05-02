@@ -21,12 +21,8 @@
 #include <linux/input.h>
 #include <linux/of_device.h>
 #include <linux/pm_qos.h>
-#ifndef VENDOR_EDIT
-/*xiang.fei@PSW.MM.AudioDriver.Codec, 2019/07/13, Modify for headset switch (max20328)*/
 #include <linux/soc/qcom/fsa4480-i2c.h>
-#else /* VENDOR_EDIT */
 #include <linux/soc/qcom/max20328.h>
-#endif /* VENDOR_EDIT */
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -178,12 +174,7 @@ struct msm_asoc_mach_data {
 	struct device_node *us_euro_gpio_p; /* used by pinctrl API */
 	struct device_node *hph_en1_gpio_p; /* used by pinctrl API */
 	struct device_node *hph_en0_gpio_p; /* used by pinctrl API */
-	#ifndef VENDOR_EDIT
-	/*xiang.fei@PSW.MM.AudioDriver.Codec, 2019/07/13, Modify for headset switch (max20328)*/
-	struct device_node *fsa_handle;
-	#else
 	struct device_node *max_handle;
-	#endif /* VENDOR_EDIT */
 	struct snd_soc_codec *codec;
 	struct work_struct adsp_power_up_work;
 };
@@ -640,12 +631,7 @@ static int msm_wsa881x_init(struct snd_soc_component *component);
 static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.read_fw_bin = false,
 	.calibration = NULL,
-	#ifndef VENDOR_EDIT
-	/*Zhao.Pan@PSW.MM.AudioDriver.Headset.2337800, 2019/10/11, Modify don't detect extn cable*/
-	.detect_extn_cable = true,
-	#else
 	.detect_extn_cable = false,
-	#endif
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
@@ -658,15 +644,11 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.key_code[6] = 0,
 	.key_code[7] = 0,
 	.linein_th = 5000,
-    #ifndef VENDOR_EDIT
-    /*xiang.fei@PSW.MM.AudioDriver.Codec, 2019/07/13, Modify for headset switch (max20328)*/
 	.moisture_en = true,
-	#else
-	.moisture_en = false,
-	#endif
 	.mbhc_micbias = MIC_BIAS_2,
 	.anc_micbias = MIC_BIAS_2,
 	.enable_anc_mic_detect = false,
+	.switch_type = 0,
 };
 
 static struct snd_soc_dapm_route wcd_audio_paths[] = {
@@ -3889,21 +3871,19 @@ static bool msm_usbc_swap_gnd_mic(struct snd_soc_codec *codec, bool active)
 	struct msm_asoc_mach_data *pdata =
 				snd_soc_card_get_drvdata(card);
 
-	#ifndef VENDOR_EDIT
-	/*xiang.fei@PSW.MM.AudioDriver.Codec, 2019/07/13, Modify for headset switch (max20328)*/
-	if (!pdata->fsa_handle)
-		return false;
+	if (MAX20328 == wcd_mbhc_cfg.switch_type) {
+		if (!pdata->max_handle)
+			return false;
 
-	return fsa4480_switch_event(pdata->fsa_handle, FSA_MIC_GND_SWAP);
-	#else
-	if (!pdata->max_handle)
-		return false;
-
-	if(!max20328_swap_mic_gnd())
-		return true;
-	else
-		return false;
-	#endif /* VENDOR_EDIT */
+		if(!max20328_swap_mic_gnd())
+			return true;
+		else
+			return false;
+	} else {
+		if (!pdata->max_handle)
+			return false;
+                return (0 == fsa4480_switch_event(pdata->max_handle, FSA_MIC_GND_SWAP));
+	}
 }
 
 static bool msm_swap_gnd_mic(struct snd_soc_codec *codec, bool active)
@@ -4326,14 +4306,7 @@ static void *def_wcd_mbhc_cal(void)
 		return NULL;
 
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(wcd_mbhc_cal)->X) = (Y))
-	#ifndef VENDOR_EDIT
-	/* xiang.fei@PSW.MM.AudioDriver.HeadsetDet, 2019/10/15,
-	 * Modify the threshold value of mic irq.
-	 */
 	S(v_hs_max, 1600);
-	#else
-	S(v_hs_max, 1700);
-	#endif
 #undef S
 #define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(wcd_mbhc_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
@@ -4343,8 +4316,6 @@ static void *def_wcd_mbhc_cal(void)
 	btn_high = ((void *)&btn_cfg->_v_btn_low) +
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
-#ifndef VENDOR_EDIT
-/* xiang.fei@PSW.MM.AudioDriver.HeadsetDet, 2019/10/15, modify for headset button det */
 	btn_high[0] = 75;
 	btn_high[1] = 150;
 	btn_high[2] = 237;
@@ -4353,16 +4324,6 @@ static void *def_wcd_mbhc_cal(void)
 	btn_high[5] = 500;
 	btn_high[6] = 500;
 	btn_high[7] = 500;
-#else /* VENDOR_EDIT */
-	btn_high[0] = 112;
-	btn_high[1] = 113;
-	btn_high[2] = 237;
-	btn_high[3] = 500;
-	btn_high[4] = 500;
-	btn_high[5] = 500;
-	btn_high[6] = 500;
-	btn_high[7] = 500;
-#endif /* VENDOR_EDIT */
 
 	return wcd_mbhc_cal;
 }
@@ -5782,6 +5743,23 @@ static struct snd_soc_dai_link msm_pahu_fe_dai_links[] = {
 };
 
 static struct snd_soc_dai_link msm_tavil_fe_dai_links[] = {
+        #ifdef OPPO_TFA_CAPTURE_VI_FEEDBACK
+	{/* Quaternary MI2S */
+		.name = "Quaternary MI2S TX_Hostless",
+		.stream_name = "Quaternary MI2S_TX Hostless Capture",
+		.cpu_dai_name = "QUAT_MI2S_TX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+				SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+	#else /* OPPO_TFA_CAPTURE_VI_FEEDBACK */
 	{
 		.name = LPASS_BE_SLIMBUS_4_TX,
 		.stream_name = "Slimbus4 Capture",
@@ -5795,6 +5773,8 @@ static struct snd_soc_dai_link msm_tavil_fe_dai_links[] = {
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
 	},
+	#endif /* OPPO_TFA_CAPTURE_VI_FEEDBACK */
+
 	/* Ultrasound RX DAI Link */
 	{
 		.name = "SLIMBUS_2 Hostless Playback",
@@ -6917,8 +6897,6 @@ static struct snd_soc_dai_link msm_auxpcm_be_dai_links[] = {
 	},
 };
 
-#ifdef VENDOR_EDIT
-/*xiang.fei@PSW.MM.AudioDriver.Codec, 2019/07/13, Add for Max98937*/
 #ifdef CONFIG_SND_SOC_MAX98937
 static struct snd_soc_dai_link maxim_fe_dai[] = {
 	{/* hw:x,40 */
@@ -6986,7 +6964,26 @@ static struct snd_soc_dai_link maxim_be_dai_links[] = {
 	},
 };
 #endif
-#endif /* VENDOR_EDIT */
+
+#ifdef CONFIG_SND_SOC_TFA9894
+static struct snd_soc_dai_link tfa98xx_be_dai_links[] = {
+	{
+		.name = LPASS_BE_QUAT_MI2S_RX,
+		.stream_name = "Quaternary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.3",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tfa98xx.0-0035",
+		.codec_dai_name = "tfa98xx-aif-0-35",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_mi2s_be_ops,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+	},
+};
+#endif
 
 static struct snd_soc_dai_link msm_pahu_snd_card_dai_links[
 			 ARRAY_SIZE(msm_common_dai_links) +
@@ -6999,19 +6996,6 @@ static struct snd_soc_dai_link msm_pahu_snd_card_dai_links[
 			 ARRAY_SIZE(msm_mi2s_be_dai_links) +
 			 ARRAY_SIZE(msm_auxpcm_be_dai_links)];
 
-#ifndef VENDOR_EDIT
-/*xiang.fei@PSW.MM.AudioDriver.Codec, 2019/07/13, Modify for Max98937*/
-static struct snd_soc_dai_link msm_tavil_dai_links[
-			 ARRAY_SIZE(msm_common_dai_links) +
-			 ARRAY_SIZE(msm_tavil_fe_dai_links) +
-			 ARRAY_SIZE(msm_common_misc_fe_dai_links) +
-			 ARRAY_SIZE(msm_common_be_dai_links) +
-			 ARRAY_SIZE(msm_tavil_be_dai_links) +
-			 ARRAY_SIZE(msm_wcn_be_dai_links) +
-			 ARRAY_SIZE(ext_disp_be_dai_link) +
-			 ARRAY_SIZE(msm_mi2s_be_dai_links) +
-			 ARRAY_SIZE(msm_auxpcm_be_dai_links)];
-#else /* VENDOR_EDIT */
 #ifdef CONFIG_SND_SOC_MAX98937
 static struct snd_soc_dai_link msm_tavil_dai_links[
 			 ARRAY_SIZE(msm_common_dai_links) +
@@ -7037,7 +7021,6 @@ static struct snd_soc_dai_link msm_tavil_dai_links[
 			 ARRAY_SIZE(msm_mi2s_be_dai_links) +
 			 ARRAY_SIZE(msm_auxpcm_be_dai_links)];
 #endif
-#endif /* VENDOR_EDIT */
 
 static int msm_snd_card_tavil_late_probe(struct snd_soc_card *card)
 {
@@ -7309,13 +7292,10 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	const struct of_device_id *match;
 	int ret = 0;
 	u32 val = 0;
-	#ifdef VENDOR_EDIT
-	/*xiang.fei@PSW.MM.AudioDriver.Codec, 2019/07/13, Modify for Max98928*/
 	int i;
 	const char *product_name = NULL;
 	const char *oppo_speaker_type = "oppo,speaker-pa";
 	struct snd_soc_dai_link *temp_link;
-	#endif /* VENDOR_EDIT */
 
 	match = of_match_node(sm8150_asoc_machine_of_match, dev->of_node);
 	if (!match) {
@@ -7434,8 +7414,6 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		ret = of_property_read_u32(dev->of_node,
 					   "qcom,mi2s-audio-intf", &val);
 		if (!ret && val) {
-			#ifdef VENDOR_EDIT
-			/*xiang.fei@PSW.MM.AudioDriver.Codec, 2019/07/13, Modify for Max98937*/
 			if (!of_property_read_string(dev->of_node, oppo_speaker_type,
 					&product_name)) {
 				pr_err("%s: custom speaker product %s\n", __func__, product_name);
@@ -7444,7 +7422,7 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 					if (temp_link->id == MSM_BACKEND_DAI_QUATERNARY_MI2S_RX) {
 						#ifdef CONFIG_SND_SOC_MAX98937
 						if (!strcmp(product_name, "maxim")
-						&& soc_find_component(NULL, maxim_be_dai_links[0].codec_name)) {
+								&& soc_find_component(NULL, maxim_be_dai_links[0].codec_name)) {
 							memcpy(temp_link, &maxim_be_dai_links[0],
 								sizeof(maxim_be_dai_links[0]));
 						}
@@ -7452,7 +7430,7 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 					} else if (temp_link->id == MSM_BACKEND_DAI_QUATERNARY_MI2S_TX) {
 						#ifdef CONFIG_SND_SOC_MAX98937
 						if (!strcmp(product_name, "maxim")
-						&& soc_find_component(NULL, maxim_be_dai_links[1].codec_name)) {
+								&& soc_find_component(NULL, maxim_be_dai_links[1].codec_name)) {
 							memcpy(temp_link, &maxim_be_dai_links[1],
 								sizeof(maxim_be_dai_links[1]));
 						}
@@ -7460,7 +7438,24 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 					}
 				}
 			}
-			#endif /* VENDOR_EDIT */
+
+			if (!of_property_read_string(dev->of_node, oppo_speaker_type,
+					&product_name)) {
+				pr_info("%s: custom speaker product %s\n", __func__, product_name);
+				for (i = 0; i < ARRAY_SIZE(msm_mi2s_be_dai_links); i++) {
+					temp_link = &msm_mi2s_be_dai_links[i];
+					if (temp_link->id == MSM_BACKEND_DAI_QUATERNARY_MI2S_RX) {
+						if (!strcmp(product_name, "nxp")
+								&& soc_find_component(NULL, tfa98xx_be_dai_links[0].codec_name)) {
+							pr_info("%s: use nxp dailink replace\n", __func__);
+							memcpy(temp_link, &tfa98xx_be_dai_links[0],
+							sizeof(tfa98xx_be_dai_links[0]));
+							break;
+						}
+					}
+				}
+			}
+
 			memcpy(msm_tavil_dai_links + total_links,
 			       msm_mi2s_be_dai_links,
 			       sizeof(msm_mi2s_be_dai_links));
@@ -7475,8 +7470,6 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 			sizeof(msm_auxpcm_be_dai_links));
 			total_links += ARRAY_SIZE(msm_auxpcm_be_dai_links);
 		}
-		#ifdef VENDOR_EDIT
-		/*xiang.fei@PSW.MM.AudioDriver.Codec, 2019/07/13, Modify for Max98937*/
 		if (!of_property_read_string(dev->of_node, oppo_speaker_type, &product_name)) {
 			#ifdef CONFIG_SND_SOC_MAX98937
 			if (!strcmp(product_name, "maxim")) {
@@ -7487,7 +7480,6 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 			}
 			#endif
 		}
-		#endif /* VENDOR_EDIT */
 		dailink = msm_tavil_dai_links;
 	} else if (!strcmp(match->data, "stub_codec")) {
 		card = &snd_soc_card_stub_msm;
@@ -7916,20 +7908,29 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	if (wcd_mbhc_cfg.enable_usbc_analog)
 		wcd_mbhc_cfg.swap_gnd_mic = msm_usbc_swap_gnd_mic;
 
-	#ifndef VENDOR_EDIT
-	/*xiang.fei@PSW.MM.AudioDriver.Codec, 2019/07/13, Modify for headset switch (max20328)*/
-	pdata->fsa_handle = of_parse_phandle(pdev->dev.of_node,
-					     "fsa4480-i2c-handle", 0);
-	if (!pdata->fsa_handle)
-		dev_dbg(&pdev->dev, "property %s not detected in node %s\n",
-			"fsa4480-i2c-handle", pdev->dev.of_node->full_name);
-	#else
-	pdata->max_handle = of_parse_phandle(pdev->dev.of_node,
+	if (of_find_property(card->dev->of_node, "oppo,usbc-switch", NULL)) {
+		ret = of_property_read_u32(card->dev->of_node, "oppo,usbc-switch",
+				&wcd_mbhc_cfg.switch_type);
+	}
+	if (ret != 0 || (wcd_mbhc_cfg.switch_type > USBC_SWITCH_MAX)) {
+		wcd_mbhc_cfg.switch_type = NO_USBC_SWITCH;
+		dev_err(card->dev, "%s: %s in dt node is missing or unsupport, set default %d\n",
+				__func__, "oppo,usbc-switch", wcd_mbhc_cfg.switch_type);
+	}
+
+	if (MAX20328 == wcd_mbhc_cfg.switch_type) {
+		pdata->max_handle = of_parse_phandle(pdev->dev.of_node,
 					     "max20328-i2c-handle", 0);
-	if (!pdata->max_handle)
-		dev_dbg(&pdev->dev, "property %s not detected in node %s\n",
-			"max20328-i2c-handle", pdev->dev.of_node->full_name);
-	#endif /* VENDOR_EDIT */
+		if (!pdata->max_handle)
+			dev_dbg(&pdev->dev, "property %s not detected in node %s\n",
+				"max20328-i2c-handle", pdev->dev.of_node->full_name);
+	} else {
+		pdata->max_handle = of_parse_phandle(pdev->dev.of_node,
+					     "fsa4480-i2c-handle", 0);
+		if (!pdata->max_handle)
+			dev_dbg(&pdev->dev, "property %s not detected in node %s\n",
+				"fsa4480-i2c-handle", pdev->dev.of_node->full_name);
+	}
 
 	/* Parse pinctrl info from devicetree */
 	ret = msm_get_pinctrl(pdev);
@@ -7950,10 +7951,7 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 		pr_err("%s: Audio notifier register failed ret = %d\n",
 			__func__, ret);
 
-	#ifdef VENDOR_EDIT
-	/*xiang.fei@PSW.MM.AudioDriver.Codec, 2019/07/13, Add for log*/
 	pr_err("%s: sound card register success.\n", __func__);
-	#endif /* VENDOR_EDIT */
 
 	return 0;
 err:

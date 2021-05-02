@@ -17,11 +17,6 @@
 #include <ipc/apr.h>
 #include <linux/msm_audio.h>
 
-#ifndef VENDOR_EDIT
-/*xiang.fei@PSW.MM.AudioDriver.Codec, 2019/07/13, Add for Max98937*/
-#define VENDOR_EDIT
-#endif /* VENDOR_EDIT */
-
 /* size of header needed for passing data out of band */
 #define APR_CMD_OB_HDR_SZ  12
 
@@ -5080,14 +5075,9 @@ struct afe_param_id_lpass_core_shared_clk_cfg {
 #define ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX		0x10015002
 #define ADM_CMD_COPP_OPEN_TOPOLOGY_ID_AUDIOSPHERE	0x10028000
 #define VPM_TX_DM_FLUENCE_EF_COPP_TOPOLOGY		0x10000005
-
-#ifdef VENDOR_EDIT
-/* Zhao.Pan@PSW.MM.AudioDriver.Machine, 2019/01/31
- * FLUENCE_EF and LVVEFQ's COPreP topology which doesn't support 44.1Khz */
-#define VPM_TX_SM_LVVEFQ_COPP_TOPOLOGY		0x1000BFF0
-#define VPM_TX_DM_LVVEFQ_COPP_TOPOLOGY		0x1000BFF1
-#define VPM_TX_QM_LVVEFQ_COPP_TOPOLOGY		0x1000BFF3
-#endif
+#define VPM_TX_SM_LVVEFQ_COPP_TOPOLOGY			0x1000BFF0
+#define VPM_TX_DM_LVVEFQ_COPP_TOPOLOGY			0x1000BFF1
+#define VPM_TX_QM_LVVEFQ_COPP_TOPOLOGY			0x1000BFF3
 
 /* Memory map regions command payload used by the
  * #ASM_CMD_SHARED_MEM_MAP_REGIONS ,#ADM_CMD_SHARED_MEM_MAP_REGIONS
@@ -10716,8 +10706,6 @@ struct afe_spkr_prot_calib_get_resp {
 	struct asm_calib_res_cfg res_cfg;
 } __packed;
 
-#ifdef VENDOR_EDIT
-/*xiang.fei@PSW.MM.AudioDriver.Codec, 2019/07/13, Add for Max98937*/
 #ifdef CONFIG_SND_SOC_MAX98937
 /*Maxim DSM module and parameters IDs*/
 #define AFE_RX_TOPOLOGY_ID_DSM                              0x10001061
@@ -10748,7 +10736,6 @@ struct afe_dsm_get_resp {
 } __packed;
 
 #endif
-#endif /* VENDOR_EDIT */
 
 /* SRS TRUMEDIA start */
 /* topology */

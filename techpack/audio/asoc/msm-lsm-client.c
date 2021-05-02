@@ -970,9 +970,7 @@ static int msm_lsm_process_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	#ifdef VENDOR_EDIT
 	#ifdef CONFIG_SND_LSM_APE_THIRD_PARTY
-	//Le.Li@MultiMedia.AudioDriver.Codec, 2019/04/02, Add for aispeech wakeup
 	if (p_info != NULL) {
 		switch (p_info->param_type) {
 		case LSM_REG_SND_MODEL:
@@ -987,7 +985,6 @@ static int msm_lsm_process_params(struct snd_pcm_substream *substream,
 		}
 	}
 	#endif /* CONFIG_SND_LSM_APE_THIRD_PARTY */
-	#endif
 	switch (p_info->param_type) {
 	case LSM_ENDPOINT_DETECT_THRESHOLD:
 		rc = msm_lsm_set_epd(substream, p_info);
