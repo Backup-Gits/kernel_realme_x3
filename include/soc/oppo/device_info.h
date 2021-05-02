@@ -38,9 +38,16 @@ struct manufacture_info {
         char *manufacture;
         char *fw_path;
 };
-
+#if defined(VENDOR_EDIT) && defined(CONFIG_UFSTW)
+struct o_ufsplus_status {
+	int *hpb_status;
+	int *tw_status;
+};
+#endif
 int register_device_proc(char *name, char *version, char *manufacture);
 int register_devinfo(char *name, struct manufacture_info *info);
-
+#if defined(VENDOR_EDIT) && defined(CONFIG_UFSTW)
+int register_device_proc_for_ufsplus(char *name, int *hpb_status,int *tw_status);
+#endif
 
 #endif /*_DEVICE_INFO_H*/

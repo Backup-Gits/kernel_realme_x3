@@ -118,7 +118,30 @@ static const struct file_operations device_node_fops = {
         .open = device_proc_open,
         .owner = THIS_MODULE,
 };
+#if defined(VENDOR_EDIT) && defined(CONFIG_UFSTW)
+static int devinfo_read_ufsplus_func(struct seq_file *s, void *v)
+{
+	struct o_ufsplus_status *ufsplus_status  = (struct o_ufsplus_status *)s->private;
+	if(!ufsplus_status)
+		return -EINVAL;
+	seq_printf(s, "HPB status: %d\n", *(ufsplus_status->hpb_status));
+	seq_printf(s, "TW status: %d\n", *(ufsplus_status->tw_status));
+	return 0;
+}
 
+static int device_info_for_ufsplus_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, devinfo_read_ufsplus_func, PDE_DATA(inode));
+}
+
+
+static const struct file_operations device_node_for_ufsplus_fops = {
+	.owner = THIS_MODULE,
+	.open  = device_info_for_ufsplus_open,
+	.read  = seq_read,
+	.release = single_release,
+};
+#endif
 int register_devinfo(char *name, struct manufacture_info *info)
 {
 	struct proc_dir_entry *d_entry;
@@ -140,7 +163,27 @@ int register_devinfo(char *name, struct manufacture_info *info)
 	}
 	return 0;
 }
+#if defined(VENDOR_EDIT) && defined(CONFIG_UFSTW)
+int register_device_proc_for_ufsplus(char *name, int *hpb_status,int *tw_status)
+{
+	struct proc_dir_entry *d_entry;
+	struct o_ufsplus_status *ufsplus_status;
+	ufsplus_status = (struct o_ufsplus_status *)kzalloc(sizeof(*ufsplus_status), GFP_KERNEL);
+	if (!ufsplus_status)
+		return -ENOMEM;
 
+	ufsplus_status->hpb_status = hpb_status;
+	ufsplus_status->tw_status = tw_status;
+
+	d_entry = proc_create_data(name, S_IRUGO, parent, &device_node_for_ufsplus_fops,ufsplus_status);
+	if(!d_entry) {
+		kfree(ufsplus_status);
+	return -EINVAL;
+	}
+
+	return 0;
+}
+#endif
 int register_device_proc(char *name, char *version, char *manufacture)
 {
         struct manufacture_info *info;
@@ -703,6 +746,11 @@ static int devinfo_probe(struct platform_device *pdev)
 
 static int devinfo_remove(struct platform_device *dev)
 {
+#if defined(VENDOR_EDIT) && defined(CONFIG_UFSTW)
+	if(parent){
+		remove_proc_entry("ufsplus_status", parent);
+	}
+#endif
         remove_proc_entry(DEVINFO_NAME, NULL);
         return 0;
 }
