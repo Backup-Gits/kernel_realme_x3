@@ -3691,12 +3691,14 @@ static ssize_t aw8697_activate_store(struct device *dev,
         return count;
 
     pr_err("%s: value=%d\n", __FUNCTION__, val);
+#if 0
     //vincent
     if (0 == val)
     {
         mdelay(10);
     }
     //vincent
+#endif
     hrtimer_cancel(&aw8697->timer);
 
     aw8697->state = val;
@@ -3860,7 +3862,7 @@ static ssize_t aw8697_vmax_store(struct device *dev,
         aw8697->gain = AW8697_HAPTIC_RAM_VBAT_COMP_GAIN;
     }
     //aw8697->vmax = AW8697_HAPTIC_HIGH_LEVEL_REG_VAL;
-    //aw8697->gain = 0x80;
+    aw8697->gain = 0x80;
     aw8697_haptic_set_gain(aw8697, aw8697->gain);
     aw8697_haptic_set_bst_vol(aw8697, aw8697->vmax);
 #else
