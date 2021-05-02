@@ -38,18 +38,17 @@ config TOUCHPANEL_MULTI_NOFLASH
 	help
 	  Say Y here if you have multiple noflash touchscreen.
 
-config TOUCHPANEL_SYNAPTICS
+config TOUCHPANEL_NOVA
 #	default y
-	bool "TP Synaptics_IC enable or not for OPPO"
+	bool "TP Nova_IC enable or not for OPPO"
 	---help---
-	say Y to enable driver for Touchpanel using Synaptics_IC
-
+	say Y to enable driver for Touchpanel using NOVATECK_IC
 
 	
 source "drivers/input/touchscreen/oppo_touchscreen/util_interface/Kconfig"
 
-if TOUCHPANEL_SYNAPTICS
-source "drivers/input/touchscreen/oppo_touchscreen/Synaptics/Kconfig"
+if TOUCHPANEL_NOVA
+source "drivers/input/touchscreen/oppo_touchscreen/Novatek/Kconfig"
 endif
 
 
