@@ -34,6 +34,10 @@
  * Add for save display panel power status at oppo display management
 */
 #include <linux/dsi_oppo_support.h>
+struct oppo_brightness_alpha {
+	u32 brightness;
+	u32 alpha;
+};
 #endif /*VENDOR_EDIT*/
 
 #define MAX_BL_LEVEL 4096

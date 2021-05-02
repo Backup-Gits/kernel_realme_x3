@@ -431,23 +431,32 @@ static int dsi_panel_reset(struct dsi_panel *panel)
 	int rc = 0;
 	struct dsi_panel_reset_config *r_config = &panel->reset_config;
 	int i;
+
+#ifdef VENDOR_EDIT
+	/* Hu Jie@PSW.MM.Display.Lcd.Stability, 2019-09-27, add log at display key evevnt */
+	pr_err("debug for dsi_panel_reset\n");
+#endif
+
     #ifdef VENDOR_EDIT
-    //Liping-M@PSW.MM.Display.LCD.Stability,2019/6/17, add project info for 19081 LCD
+
+	//Liping-M@PSW.MM.Display.LCD.Stability,2019/6/17, add project info for 19081 LCD
 	if (gpio_is_valid(panel->reset_config.lcd_vci_gpio)) {
 		rc = gpio_direction_output(panel->reset_config.lcd_vci_gpio, 1);
 		if (rc) {
 			pr_err("unable to set lcd_vci_gpio dir for disp gpio rc=%d\n", rc);
 		}
 	}
-    usleep_range(1000, 5000);
-    if (gpio_is_valid(panel->reset_config.lcd_mode_sel_gpio)) {
-        rc = gpio_direction_output(panel->reset_config.lcd_mode_sel_gpio, 1);
+	if(19696 != get_project())
+		usleep_range(1000, 5000);
+	if (gpio_is_valid(panel->reset_config.lcd_mode_sel_gpio)) {
+		rc = gpio_direction_output(panel->reset_config.lcd_mode_sel_gpio, 1);
 		if (rc) {
 			pr_err("unable to set lcd_mode_sel_gpio dir for disp gpio rc=%d\n", rc);
 		}
-    }
-    usleep_range(1000, 12000);
-    #endif /*VENDOR_EDIT*/
+	}
+	if(19696 != get_project())
+		usleep_range(1000, 12000);
+	#endif /*VENDOR_EDIT*/
 
 	if (gpio_is_valid(panel->reset_config.disp_en_gpio)) {
 		rc = gpio_direction_output(panel->reset_config.disp_en_gpio, 1);
@@ -548,6 +557,11 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 	int rc = 0;
 
 #ifdef VENDOR_EDIT
+	/* Hu Jie@PSW.MM.Display.Lcd.Stability, 2019-09-27, add log at display key evevnt */
+	pr_err("debug for dsi_panel_power_on\n");
+#endif
+
+#ifdef VENDOR_EDIT
 	/* Yuwei.Zhang@MM.Display.LCD.Machine, 2020.01.14, add for esd check */
 	if(get_esd_check_happened())
 		set_esd_check_happened(0);
@@ -556,6 +570,10 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 //#ifdef VENDOR_EDIT
 /*Liuchao@BSP.TP.Driver, 2019/12/12, enable black gesture for 19696*/
 	if(19696 == get_project()){
+		if (gpio_is_valid(panel->reset_config.reset_gpio)){
+			gpio_set_value(panel->reset_config.reset_gpio, 0);
+			usleep_range(1000, 1000);
+		}
 
 		if((0 == mdss_tp_black_gesture_status())||(1 == tp_black_power_on_ff_flag)){
 			tp_black_power_on_ff_flag = 0;
@@ -579,9 +597,7 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 	}
 
 	if(19696 == get_project()) {
-		usleep_range(1000, 1000);
 		TPS65132_pw_enable(1);
-		usleep_range(10000, 10000);
 	}
 //#endif/*VENDOR_EDIT*/
 
@@ -591,17 +607,19 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 		goto error_disable_vregs;
 	}
 
-	rc = dsi_panel_reset(panel);
-	if (rc) {
-		pr_err("[%s] failed to reset panel, rc=%d\n", panel->name, rc);
-		goto error_disable_gpio;
-	}
-
 #ifdef VENDOR_EDIT
-	if (19696 == get_project())
-	/*Wenping.ZHOU@BSP.TP.Function, 2019/10/09, add for trigger load tp fw by lcd driver after lcd reset*/
-		lcd_queue_load_tp_fw();
+/*Song.Gao@PSW.MM.Display.LCD.Stability,2019-12-17 Change reset enable sequence for LCD power on spec.*/
+	if (!strcmp(panel->name,"jdi nt36672c fhd ltps tft lcd panel with DSC") ||
+		!strcmp(panel->name,"boe nt36672c fhd ltps tft lcd panel with DSC")) {
+	} else {
+		rc = dsi_panel_reset(panel);
+		if (rc) {
+			pr_err("[%s] failed to reset panel, rc=%d\n", panel->name, rc);
+			goto error_disable_gpio;
+		}
+	}
 #endif
+
 
 	goto exit;
 
@@ -683,12 +701,12 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 			tp_black_power_on_ff_flag = 1;
 			pr_err("%s:[TP]tp_black_power_on_ff_flag = %d\n",__func__,tp_black_power_on_ff_flag);
 			TPS65132_pw_enable(0);
-			usleep_range(1000, 2000);
 			rc = dsi_pwr_enable_regulator(&panel->power_info, false);
 			if (rc)
 				pr_err("[%s][TP] failed to enable vregs, rc=%d\n", panel->name, rc);
 
 			dsi_panel_1p8_on_off(panel,false);
+			usleep_range(10000, 10000);
 		}
     } else {
 		rc = dsi_pwr_enable_regulator(&panel->power_info, false);
@@ -705,7 +723,7 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 int oppo_seed_backlight = 0;
 static struct dsi_panel_cmd_set oppo_priv_seed_cmd_set;
 extern int oppo_dimlayer_bl_alpha_value;
-extern int oppo_dc2_alpha;;
+extern int oppo_dc2_alpha;
 extern int oppo_seed_bright_to_alpha(int brightness);
 static struct dsi_panel_cmd_set *
 oppo_dsi_update_seed_backlight(struct dsi_panel *panel, int brightness,
@@ -815,6 +833,7 @@ int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 #ifdef VENDOR_EDIT
 //Liping-M@PSW.MM.Display.LCD.Stability,2019/7/31, add DC 2.0
 	struct dsi_panel_cmd_set *oppo_cmd_set = NULL;
+	static int osc_cmd_skip_count = 0;
 #endif
 
 	if (!panel || !panel->cur_mode)
@@ -827,6 +846,13 @@ int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 	state = mode->priv_info->cmd_sets[type].state;
 
 #ifdef VENDOR_EDIT
+	if((0==osc_cmd_skip_count) && (is_project(OPPO_19781)||is_project(OPPO_19688)) && \
+			((DSI_CMD_OSC_CLK_MODEO0==type)||(DSI_CMD_OSC_CLK_MODEO1==type))) {
+		osc_cmd_skip_count = 1;
+		pr_err("first setting osc clk is skipped");
+		goto error;
+	}
+
 /* Gou shengjun@PSW.MM.Display.LCD.Stability,2018/12/13
  * Add for oppo display new structure
 */
@@ -956,7 +982,10 @@ extern int oppo_dimlayer_bl_enable_real;
 ktime_t oppo_backlight_time;
 u32 oppo_last_backlight = 0;
 u32 oppo_backlight_delta = 0;
+extern int oppo_panel_process_dimming_v2(struct dsi_panel *panel, int bl_lvl, bool force_disable);
+extern int oppo_panel_process_dimming_v3(struct dsi_panel *panel, int brightness);
 extern int oppo_panel_update_seed_mode_unlock(struct dsi_panel *panel);
+extern void oppo_panel_process_dimming_v2_post(struct dsi_panel *panel, bool force_disable);
 #endif /* VENDOR_EDIT */
 static int dsi_panel_update_backlight(struct dsi_panel *panel,
 	u32 bl_lvl)
@@ -975,23 +1004,6 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 /* Gou shengjun@PSW.MM.Display.LCD.Feature,2018-11-21
  * Add for OnScreenFingerprint feature
 */
-	if (!panel->is_hbm_enabled &&
-		oppo_dimlayer_bl_enable_v2_real && bl_lvl > 1 && bl_lvl < 260) {
-		oppo_seed_backlight = bl_lvl;
-		bl_lvl = oppo_dimlayer_bl_alpha;
-		oppo_panel_update_seed_mode_unlock(panel);
-	} else if (oppo_seed_backlight) {
-        //Zeke.Shi@RM.MM.DISPLAY.LCD.Stability,2019-11-07,add for set bakclight to 0 befor set seed.
-        if (bl_lvl == 0) {
-            rc = mipi_dsi_dcs_set_display_brightness(dsi, 0);
-            if (rc < 0)
-                pr_err("mipi_dsi_dcs_set_display_brightness failed to update dcs backlight:%d\n", bl_lvl);
-        }
-		oppo_seed_backlight = 0;
-		oppo_dc2_alpha = 0;
-		oppo_panel_update_seed_mode_unlock(panel);
-	}
-
 	if ((get_oppo_display_scene() == OPPO_DISPLAY_AOD_SCENE) && ( bl_lvl == 1)) {
 		pr_err("dsi_cmd AOD mode return bl_lvl:%d\n",bl_lvl);
 		return 0;
@@ -1021,6 +1033,11 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 			pr_err("Exit DC backlight\n");
 		}
 	}
+	if(OPPO_19696 != get_project()) {
+        bl_lvl = oppo_panel_process_dimming_v2(panel, bl_lvl, false);
+        bl_lvl = oppo_panel_process_dimming_v3(panel, bl_lvl);
+    }
+
 	if (oppo_dimlayer_bl_enable_real) {
 		/*
 		 * avoid effect power and aod mode
@@ -1033,6 +1050,13 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 	rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
 	if (rc < 0)
 		pr_err("failed to update dcs backlight:%d\n", bl_lvl);
+#ifdef VENDOR_EDIT
+/*Mark.Yao@PSW.MM.Display.LCD.Stable,2019-12-15 fix datadimming flash */
+	if(OPPO_19696 != get_project()) {
+        oppo_panel_process_dimming_v2_post(panel, false);
+        oppo_last_backlight = bl_lvl;
+	}
+#endif /* VENDOR_EDIT */
 
 	return rc;
 }
@@ -4592,6 +4616,15 @@ int dsi_panel_prepare(struct dsi_panel *panel)
 
 	mutex_lock(&panel->panel_lock);
 
+#ifdef VENDOR_EDIT
+/*Song.Gao@PSW.MM.Display.LCD.Stability,2019-12-17 Change reset enable sequence for LCD power on spec.*/
+	if (!strcmp(panel->name,"jdi nt36672c fhd ltps tft lcd panel with DSC") ||
+		!strcmp(panel->name,"boe nt36672c fhd ltps tft lcd panel with DSC")) {
+		usleep_range(10000, 10000);
+		dsi_panel_reset(panel);
+	}
+#endif /* VENDOR_EDIT */
+
 	if (panel->lp11_init) {
 		rc = dsi_panel_power_on(panel);
 		if (rc) {
@@ -4604,8 +4637,18 @@ int dsi_panel_prepare(struct dsi_panel *panel)
 /* Gou shengjun@PSW.MM.Display.LCD.Stable,2018-07-17
  * need wait 5ms after lp11 init
 */
-	usleep_range(5 * 1000, 5 * 1000);
+	if (!strcmp(panel->name,"jdi nt36672c fhd ltps tft lcd panel with DSC") ||
+		!strcmp(panel->name,"boe nt36672c fhd ltps tft lcd panel with DSC")) {
+	} else {
+		usleep_range(5 * 1000, 5 * 1000);
+	}
 #endif /* VENDOR_EDIT */
+
+#ifdef VENDOR_EDIT
+		if (19696 == get_project())
+		/*Wenping.ZHOU@BSP.TP.Function, 2019/10/09, add for trigger load tp fw by lcd driver after lcd reset*/
+			lcd_queue_load_tp_fw();
+#endif
 
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_PRE_ON);
 	if (rc) {

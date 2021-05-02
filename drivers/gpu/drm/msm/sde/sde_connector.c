@@ -600,8 +600,12 @@ extern int oppo_dimlayer_bl_enabled;
 extern int oppo_dimlayer_bl_delay;
 extern int oppo_dimlayer_bl_delay_after;
 extern int oppo_dimlayer_bl_enable_v2;
+extern int oppo_dimlayer_bl_enable_v3;
 int oppo_dimlayer_bl_enable_v2_real = 0;
-
+extern int oppo_dimlayer_bl_enable_v3_real;
+extern int oppo_datadimming_vblank_count;
+extern atomic_t oppo_datadimming_vblank_ref;
+int oppo_datadimming_v3_skip_frame = 2;
 int sde_connector_update_backlight(struct drm_connector *connector)
 {
 	if (oppo_dimlayer_bl != oppo_dimlayer_bl_enabled) {
@@ -620,6 +624,26 @@ int sde_connector_update_backlight(struct drm_connector *connector)
 		_sde_connector_update_bl_scale(c_conn);
 	}
 
+	if (oppo_dimlayer_bl_enable_v3 != oppo_dimlayer_bl_enable_v3_real) {
+		struct sde_connector *c_conn = to_sde_connector(connector);
+
+		if (oppo_datadimming_v3_skip_frame > 0) {
+			oppo_datadimming_v3_skip_frame--;
+		} else {
+			oppo_dimlayer_bl_enable_v3_real = oppo_dimlayer_bl_enable_v3;
+			_sde_connector_update_bl_scale(c_conn);
+			oppo_datadimming_v3_skip_frame=2;
+		}
+	}
+
+	if (oppo_datadimming_vblank_count> 0) {
+		oppo_datadimming_vblank_count--;
+	} else {
+		while (atomic_read(&oppo_datadimming_vblank_ref) > 0) {
+			drm_crtc_vblank_put(connector->state->crtc);
+			atomic_dec(&oppo_datadimming_vblank_ref);
+		}
+	}
 	return 0;
 }
 
@@ -630,12 +654,17 @@ int sde_connector_update_hbm_backlight(struct drm_connector *connector)
 	return 0;
 }
 
+extern int oppo_seed_backlight;
 extern u32 flag_writ;
 extern int oppo_dimlayer_hbm_vblank_count;
 extern atomic_t oppo_dimlayer_hbm_vblank_ref;
 extern u32 oppo_onscreenfp_pressed_up_status;
 extern int oppo_fod_on_vblank;
 extern int oppo_fod_off_vblank;
+extern int oppo_panel_update_backlight_unlock(struct dsi_panel *panel);
+extern int oppo_panel_process_dimming_v2(struct dsi_panel *panel, int bl_lvl, bool force_disable);
+extern void oppo_panel_process_dimming_v2_post(struct dsi_panel *panel, bool force_disable);
+bool oppo_skip_datadimming_sync = false;
 int sde_connector_update_hbm(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn = to_sde_connector(connector);
@@ -699,6 +728,15 @@ int sde_connector_update_hbm(struct drm_connector *connector)
 			_sde_connector_update_bl_scale(c_conn);
 			mutex_lock(&dsi_display->panel->panel_lock);
 
+			if (oppo_seed_backlight) {
+				int frame_time_us;
+				frame_time_us = mult_frac(1000, 1000, panel->cur_mode->timing.refresh_rate);
+				oppo_panel_process_dimming_v2(panel, panel->bl_config.bl_level, true);
+				mipi_dsi_dcs_set_display_brightness(&panel->mipi_device, panel->bl_config.bl_level);
+				oppo_panel_process_dimming_v2_post(panel, true);
+				usleep_range(frame_time_us, frame_time_us + 100);
+			}
+
 			if (OPPO_DISPLAY_AOD_SCENE != get_oppo_display_scene() &&
 			    dsi_display->panel->bl_config.bl_level) {
 				current_vblank = drm_crtc_vblank_count(crtc);
@@ -744,10 +782,21 @@ int sde_connector_update_hbm(struct drm_connector *connector)
 
 			mutex_lock(&dsi_display->panel->panel_lock);
 
+			if (!dsi_display->panel->panel_initialized) {
+				dsi_display->panel->is_hbm_enabled = true;
+				pr_err("panel not initialized, failed to Exit OnscreenFingerprint\n");
+				mutex_unlock(&dsi_display->panel->panel_lock);
+				return 0;
+			}
+
 			current_vblank = drm_crtc_vblank_count(crtc);
 			ret = wait_event_timeout(*drm_crtc_vblank_waitqueue(crtc),
 					current_vblank == drm_crtc_vblank_count(crtc),
 					msecs_to_jiffies(17));
+
+			oppo_skip_datadimming_sync = true;
+			oppo_panel_update_backlight_unlock(panel);
+			oppo_skip_datadimming_sync = false;
 
 			vblank = panel->cur_mode->priv_info->fod_off_vblank;
 			target_vblank = drm_crtc_vblank_count(crtc) + vblank;
