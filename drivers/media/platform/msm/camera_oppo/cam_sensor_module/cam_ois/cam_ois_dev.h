@@ -36,6 +36,7 @@
 #define OIS_HALL_SAMPLE_COUNT    100
 #define SAMPLE_COUNT_IN_OIS_FIFO 20
 #define OIS_HALL_SAMPLE_BYTE     12
+#define CLOCK_TICKCOUNT_MS       19200
 
 enum cam_ois_state {
 	CAM_OIS_INIT,

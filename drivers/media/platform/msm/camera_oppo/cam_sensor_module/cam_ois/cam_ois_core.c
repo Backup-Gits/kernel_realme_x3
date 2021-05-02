@@ -435,6 +435,302 @@ static int cam_ois_slaveInfo_pkt_parser(struct cam_ois_ctrl_t *o_ctrl,
 	return rc;
 }
 
+#ifdef VENDOR_EDIT
+/*hongbo.dai@Camera.driver, 2019/02/01, Add for sem1215s OIS fw update*/
+#define PRJ_VERSION_PATH  "/proc/oppoVersion/prjVersion"
+#define PCB_VERSION_PATH  "/proc/oppoVersion/pcbVersion"
+static int getfileData(char *filename, char *context)
+{
+	struct file *mfile = NULL;
+	ssize_t size = 0;
+	loff_t offsize = 0;
+	mm_segment_t old_fs;
+	char project[10] = {0};
+
+	memset(project, 0, sizeof(project));
+	mfile = filp_open(filename, O_RDONLY, 0644);
+	if (IS_ERR(mfile))
+	{
+		CAM_ERR(CAM_OIS, "%s fopen file %s failed !", __func__, filename);
+		return (-1);
+	}
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	offsize = 0;
+	size = vfs_read(mfile, project, sizeof(project), &offsize);
+	if (size < 0) {
+		CAM_ERR(CAM_OIS, "fread file %s error size:%s", __func__, filename);
+		set_fs(old_fs);
+		filp_close(mfile, NULL);
+		return (-1);
+	}
+	set_fs(old_fs);
+	filp_close(mfile, NULL);
+
+	CAM_ERR(CAM_OIS, "%s project:%s", __func__, project);
+	memcpy(context, project, size);
+	return 0;
+}
+
+static int getProject(char *project)
+{
+	int rc = 0;
+	rc = getfileData(PRJ_VERSION_PATH, project);
+	return rc;
+}
+
+static int getPcbVersion(char *pcbVersion)
+{
+	int rc = 0;
+	rc = getfileData(PCB_VERSION_PATH, pcbVersion);
+	return rc;
+}
+
+#define TX_SIZE_128_BYTE            128
+#define NO_FWUP_ERR                 0x00
+#define VERSION_OFFSET              0x7FF4
+#define FW_UPDATE_VERSION           0x400C
+#define FW_UPDATE_MIDDLE_VERSION    0xC31B
+#define FW_DVT4G_UPDATE_VERSION     0x600B
+#define FW_DVT5G_UPDATE_VERSION     0x610B
+
+static int cam_sem1815s_ois_fw_download(struct cam_ois_ctrl_t *o_ctrl)
+{
+	uint16_t                           total_bytes = 0;
+	uint8_t                            *ptr = NULL;
+	int32_t                            rc = 0, cnt,i;
+	uint32_t                           fw_size, data=0;
+	uint16_t                           check_sum = 0x0;
+	const struct firmware              *fw = NULL;
+	const char                         *fw_name_bin = NULL;
+	char                               name_bin[32] = {0};
+	struct device                      *dev = &(o_ctrl->pdev->dev);
+	struct cam_sensor_i2c_reg_setting  i2c_reg_setting;
+	struct page                        *page = NULL;
+	int                                reg_double = 1;
+	char                               mPrjname[10];
+	char                               mPcbVer[4];
+	uint8_t                            fw_ver[4] = {0};
+	uint32_t                           ois_fw_version = FW_UPDATE_VERSION;
+	uint32_t                           ois_middle_version = FW_UPDATE_MIDDLE_VERSION;
+	uint32_t                           ois_dvt_version = FW_DVT4G_UPDATE_VERSION;
+
+	if (!o_ctrl) {
+		CAM_ERR(CAM_OIS, "Invalid Args");
+		return -EINVAL;
+	}
+	CAM_ERR(CAM_OIS, "entry:%s ", __func__);
+
+	memset(mPrjname, 0, sizeof(mPrjname));
+	memset(mPcbVer, 0, sizeof(mPcbVer));
+
+	rc = getProject(mPrjname);
+	rc |= getPcbVersion(mPcbVer);
+
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info), 0x1008, &data,
+		CAMERA_SENSOR_I2C_TYPE_WORD, CAMERA_SENSOR_I2C_TYPE_WORD);
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS, "read Reg=0x1008,rc=%d fail",rc);
+		return rc;
+	}
+	CAM_ERR(CAM_OIS, "%s cur_app_version:0x%x",__func__,data);
+	data = ((data >> 8) & 0x0FF) | ((data & 0xFF) << 8);
+	ois_middle_version = ((ois_middle_version >> 8) & 0x0FF) | ((ois_middle_version & 0xFF) << 8);
+	ois_dvt_version = ((ois_dvt_version >> 8) & 0x0FF) | ((ois_dvt_version & 0xFF) << 8);
+	ois_fw_version = ((ois_fw_version >> 8) & 0x0FF) | ((ois_fw_version & 0xFF) << 8);
+
+	CAM_ERR(CAM_OIS, "data=0x%x,ois_middle_version=0x%x,ois_dvt_version=0x%x,ois_fw_version=0x%x",data,
+		ois_middle_version,ois_dvt_version,ois_fw_version);
+	if (data == ois_fw_version) {
+		CAM_ERR(CAM_OIS, "project is:%s mPcbVer:%s fw version:0x%0x ois_fw_version:0x%0x no need to update !!!", mPrjname, mPcbVer, data, ois_fw_version);
+		return 0;
+	} else {
+		if (data >= ois_middle_version) //PVT module need update to 0x000D
+		{
+			//snprintf(name_bin, 32, "%s.bin", o_ctrl->ois_name);
+			snprintf(name_bin, 32, "%s_19710_dvt5g.bin", o_ctrl->ois_name);
+		}
+		else if (data < ois_dvt_version) //DVT module need to update 0x600B(0x610B)
+		{
+			if ((strcmp(mPrjname, "18503") == 0 || strcmp(mPrjname, "18501") == 0)
+				&& (strcmp(mPcbVer, "4") == 0 || strcmp(mPcbVer, "3") == 0)){
+				//snprintf(name_bin, 32, "%s_dvt5g.bin", o_ctrl->ois_name);
+				snprintf(name_bin, 32, "%s_19710_dvt5g.bin", o_ctrl->ois_name);
+			} else {
+				//snprintf(name_bin, 32, "%s_dvt4g.bin", o_ctrl->ois_name);
+				snprintf(name_bin, 32, "%s_19710_dvt5g.bin", o_ctrl->ois_name);
+			}
+		}
+		else
+		{
+			snprintf(name_bin, 32, "%s_19710_dvt5g.bin", o_ctrl->ois_name);
+			//CAM_ERR(CAM_OIS, "project is:%s mPcbVer:%s fw version:0x%0x ois_fw_version:0x%0x no need to update !!!", mPrjname, mPcbVer, data, ois_fw_version);
+			//return 0;
+		}
+		CAM_ERR(CAM_OIS, "project is:%s mPcbVer:%s fw version:0x%0x need to update ois_fw_version:0x%0x !!!", mPrjname, mPcbVer, data, ois_fw_version);
+	}
+
+	/* cast pointer as const pointer*/
+	fw_name_bin = name_bin;
+
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info), 0x0001, &data,
+		CAMERA_SENSOR_I2C_TYPE_WORD, CAMERA_SENSOR_I2C_TYPE_BYTE); //REG_OIS_STS
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS, "read 0x0001 fail");
+	}
+	CAM_ERR(CAM_OIS, "%s REG_OIS_STS:0x%x",__func__,data);
+	if (data != 0x01) {
+		RamWriteByte(o_ctrl, 0x0000, 0x00, 50); //REG_OIS_CTRL
+	}
+
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info), 0x0201, &data,
+		CAMERA_SENSOR_I2C_TYPE_WORD, CAMERA_SENSOR_I2C_TYPE_BYTE);//REG_AF_STS
+		if (rc < 0) {
+		CAM_ERR(CAM_OIS, "read 0x0201 fail");
+	}
+	CAM_ERR(CAM_OIS, "%s REG_AF_STS:0x%x",__func__,data);
+	if (data != 0x01) {
+		RamWriteByte(o_ctrl, 0x0200, 0x0, 10);//REG_AF_CTRL
+		rc = camera_io_dev_read(&(o_ctrl->io_master_info), 0x0201, &data,
+			CAMERA_SENSOR_I2C_TYPE_WORD, CAMERA_SENSOR_I2C_TYPE_BYTE);
+		if (rc < 0) {
+			CAM_ERR(CAM_OIS, "read 0x0201 fail");
+		}
+	}
+
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info), 0x1000, &data,
+		CAMERA_SENSOR_I2C_TYPE_WORD, CAMERA_SENSOR_I2C_TYPE_BYTE);
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS, "read 0x1000 fail");
+	}
+	CAM_ERR(CAM_OIS, "%s REG_FWUP_CTRL:0x%x",__func__,data);
+
+	RamWriteByte(o_ctrl, 0x1000, 0x05, 60);//start fwupdate,128Bytes
+
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info), 0x0001, &data,
+		CAMERA_SENSOR_I2C_TYPE_WORD, CAMERA_SENSOR_I2C_TYPE_BYTE); //REG_OIS_STS
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS, "read 0x0001 fail");
+	}
+	CAM_ERR(CAM_OIS, "%s secend REG_OIS_STS:0x%x",__func__,data);
+	if (data != 0x02) {
+		return -1;
+	}
+
+	/* Load FW */
+	rc = request_firmware(&fw, fw_name_bin, dev);
+	if (rc) {
+		CAM_ERR(CAM_OIS, "Failed to locate %s", fw_name_bin);
+		return rc;
+	}
+
+	total_bytes = fw->size;
+	i2c_reg_setting.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+	i2c_reg_setting.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+	i2c_reg_setting.size = total_bytes;
+	i2c_reg_setting.delay = 0;
+	fw_size = PAGE_ALIGN(sizeof(struct cam_sensor_i2c_reg_array) *
+		total_bytes) >> PAGE_SHIFT;
+	page = cma_alloc(dev_get_cma_area((o_ctrl->soc_info.dev)),
+		fw_size, 0, GFP_KERNEL);
+	if (!page) {
+		CAM_ERR(CAM_OIS, "Failed in allocating i2c_array");
+		release_firmware(fw);
+		return -ENOMEM;
+	}
+
+	i2c_reg_setting.reg_setting = (struct cam_sensor_i2c_reg_array *) (
+		page_address(page));
+
+	CAM_ERR(CAM_OIS, "total_bytes:%d", total_bytes);
+
+	for (cnt = 0, ptr = (uint8_t *)fw->data; cnt < total_bytes;) {
+		i2c_reg_setting.size = 0;
+		for (i = 0; (i < TX_SIZE_128_BYTE && cnt < total_bytes); i++,ptr++) {
+			if (cnt >= VERSION_OFFSET && cnt < (VERSION_OFFSET + 4)) {
+				fw_ver[cnt-VERSION_OFFSET] = *ptr;
+				CAM_ERR(CAM_OIS, "get fw version:0x%0x", fw_ver[cnt-VERSION_OFFSET]);
+			}
+			i2c_reg_setting.reg_setting[i].reg_addr =
+				o_ctrl->opcode.prog;
+			i2c_reg_setting.reg_setting[i].reg_data = *ptr;
+			i2c_reg_setting.reg_setting[i].delay = 0;
+			i2c_reg_setting.reg_setting[i].data_mask = 0;
+			i2c_reg_setting.size++;
+			cnt++;
+			if (reg_double == 0) {
+				reg_double = 1;
+			} else {
+				check_sum += ((*(ptr+1) << 8) | *ptr) & 0xFFFF;
+				reg_double = 0;
+			}
+		}
+		i2c_reg_setting.delay = 0;
+
+		if (i2c_reg_setting.size > 0) {
+			rc = camera_io_dev_write_continuous(&(o_ctrl->io_master_info),
+				&i2c_reg_setting, 1);
+		    msleep(1);
+		}
+	}
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS, "OIS FW download failed %d", rc);
+		goto release_firmware;
+	}
+	CAM_ERR(CAM_OIS, "check sum:0x%0x", check_sum);
+
+	RamWriteWord(o_ctrl, 0x1002, ((check_sum&0x0FF) << 8) | ((check_sum&0xFF00) >> 8));//REG_FWUP_CHKSUM
+	msleep(10);
+
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info), 0x1001, &data,
+		CAMERA_SENSOR_I2C_TYPE_WORD, CAMERA_SENSOR_I2C_TYPE_BYTE); //REG_FWUP_ERR
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS, "read REG_FWUP_ERR fail");
+	} else {
+		CAM_ERR(CAM_OIS, "get REG_FWUP_ERR = 0x%0x", data);
+	}
+
+	if(data != NO_FWUP_ERR){
+		CAM_ERR(CAM_OIS, "REG_FWUP_ERR = 0x%0x update fail!", data);
+		return -1;
+	}
+
+	RamWriteByte(o_ctrl, 0x1000, 0x80, 200); //REG_FWUP_CTRL,SW reset
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS, "write 0x1000 fail");
+	}
+
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info), 0x1008, &data,
+		CAMERA_SENSOR_I2C_TYPE_WORD, CAMERA_SENSOR_I2C_TYPE_WORD);
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS, "read 0x1008 fail");
+	}
+
+	CAM_ERR(CAM_OIS, "get update APP_VER = 0x%0x", data);//REG_APP_VER
+	if (data != FW_UPDATE_VERSION )   /* Compare updated_ver & new_fw_ver */
+	{
+		/* FW Update Error */
+		CAM_ERR(CAM_OIS, "OIS FW download failed ,cur_version != FW_UPDATE_VERSION");
+		return -1;
+	}
+
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info), 0x100A, &data,
+		CAMERA_SENSOR_I2C_TYPE_WORD, CAMERA_SENSOR_I2C_TYPE_WORD);
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS, "read 0x100A fail");
+	}
+	CAM_ERR(CAM_OIS, "OIS FW download success ! get 0x100A = 0x%0x", data);
+
+release_firmware:
+	cma_release(dev_get_cma_area((o_ctrl->soc_info.dev)),
+		page, fw_size);
+	release_firmware(fw);
+
+	return rc;
+}
+#endif
+
 static int cam_ois_fw_download(struct cam_ois_ctrl_t *o_ctrl)
 {
 	uint16_t                           total_bytes = 0;
@@ -974,7 +1270,9 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 				o_ctrl->ois_module_vendor = (o_ctrl->opcode.pheripheral & 0xFF00) >> 8;
 				o_ctrl->ois_actuator_vendor = o_ctrl->opcode.pheripheral & 0xFF;
 				rc = DownloadFW(o_ctrl);
-			} else {
+			} else if(strstr(o_ctrl->ois_name, "sem1215s")){
+				rc = cam_sem1815s_ois_fw_download(o_ctrl);
+			}else{
 				rc = cam_ois_fw_download(o_ctrl);
 			}
 
@@ -1061,13 +1359,6 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			CAM_ERR(CAM_OIS, "OIS pkt parsing failed: %d", rc);
 			return rc;
 		}
-		#ifdef VENDOR_EDIT
-		if (strstr(o_ctrl->ois_name, "lc898")) {
-			if (!IsOISReady(o_ctrl)) {
-				CAM_ERR(CAM_OIS, "OIS is not ready, apply setting may fail");
-			}
-		}
-		#endif
 
 		rc = cam_ois_apply_settings(o_ctrl, i2c_reg_settings);
 		if (rc < 0) {
@@ -1081,12 +1372,15 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 				"Fail deleting Mode data: rc: %d", rc);
 			return rc;
 		}
-		#ifdef VENDOR_EDIT
-		if (strstr(o_ctrl->ois_name, "lc898")) {
-			CheckOISdata();
-			CheckOISfwVersion();
+
+#if 0
+		if (strstr(o_ctrl->ois_name, "lc898") || strstr(o_ctrl->ois_name, "sem1215")) {
+			CAM_ERR(CAM_OIS, "IsOISReady start");
+			if (!IsOISReady(o_ctrl)) {
+				CAM_ERR(CAM_OIS, "OIS is not ready, apply setting may fail");
+			}
 		}
-		#endif
+#endif
 		break;
 	default:
 		CAM_ERR(CAM_OIS, "Invalid Opcode: %d",
@@ -1370,14 +1664,17 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		}
 		break;
 	}
-	case CAM_GET_OIS_EIS_HALL:
-		if (o_ctrl->cam_ois_state == CAM_OIS_START && strstr(o_ctrl->ois_name, "sem1215s") != NULL) {
-			ReadOISHALLData(o_ctrl, u64_to_user_ptr(cmd->handle));
-		} else {
-			CAM_DBG(CAM_OIS, "OIS in wrong state %d", o_ctrl->cam_ois_state);
+	case CAM_GET_OIS_EIS_HALL:{
+		//CAM_ERR(CAM_OIS, "OIS state 0x%x", o_ctrl->cam_ois_state);
+		if (o_ctrl->cam_ois_state == 0x02
+		           && strstr(o_ctrl->ois_name, "sem1215s_ois") == NULL) {
+			//Sem1215sReadOISHALLData(o_ctrl, u64_to_user_ptr(cmd->handle));
+		}
+		else {
+			CAM_DBG(CAM_OIS, "OIS in wrong state 0x%x", o_ctrl->cam_ois_state);
 		}
 		break;
-
+	}
 	#endif
 	default:
 		CAM_ERR(CAM_OIS, "invalid opcode");

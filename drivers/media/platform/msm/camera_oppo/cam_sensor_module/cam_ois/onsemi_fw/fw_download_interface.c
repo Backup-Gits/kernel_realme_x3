@@ -6,6 +6,7 @@ extern unsigned char SelectDownload(uint8_t GyroSelect, uint8_t ActSelect, uint8
 extern uint8_t FlashDownload128( uint8_t ModuleVendor, uint8_t ActVer, uint8_t MasterSlave, uint8_t FWType);
 
 #define MAX_DATA_NUM 64
+#define REG_OIS_STS  0x0001
 
 static char ic_name_a[] = "lc898";
 static char ic_name_b[] = "LC898";
@@ -295,7 +296,7 @@ int RamWrite32A(    uint32_t addr, uint32_t data)
 	return rc;
 }
 
-int RamRead32A(    uint32_t addr, uint32_t* data)
+int RamRead32A(uint32_t addr, uint32_t* data)
 {
 	int32_t rc = 0;
 	int retry = 3;
@@ -309,7 +310,7 @@ int RamRead32A(    uint32_t addr, uint32_t* data)
 	}
 	for(i = 0; i < retry; i++) {
 		rc = camera_io_dev_read(&(o_ctrl->io_master_info), (uint32_t)addr, (uint32_t *)data,
-		                        CAMERA_SENSOR_I2C_TYPE_WORD, CAMERA_SENSOR_I2C_TYPE_DWORD);
+		                        CAMERA_SENSOR_I2C_TYPE_WORD, CAMERA_SENSOR_I2C_TYPE_BYTE);
 		if (rc < 0) {
 			CAM_ERR(CAM_OIS, "read 0x%04x failed, retry:%d", addr, i+1);
 		} else {
@@ -785,11 +786,12 @@ void forceExitpoll(struct cam_ois_ctrl_t *o_ctrl)
 {
 	if (o_ctrl) {
 		if (strstr(o_ctrl->ois_name, ic_name_a) == NULL
-			&& strstr(o_ctrl->ois_name, ic_name_b) == NULL) {
+			&& strstr(o_ctrl->ois_name, ic_name_b) == NULL
+			&& strstr(o_ctrl->ois_name, "sem1215s") == NULL) {
 			return;
 		}
 	}
-	CAM_INFO(CAM_OIS, "++++:%s", __func__);
+	CAM_INFO(CAM_OIS, "++++:%s ois-name %s", __func__,o_ctrl->ois_name);
 	mutex_lock(&(o_ctrl->ois_poll_thread_mutex));
 	o_ctrl->ois_poll_thread_exit = true;
 	mutex_unlock(&(o_ctrl->ois_poll_thread_mutex));
@@ -883,6 +885,87 @@ exit:
 	return 0;
 }
 
+int Sem1215sOISPollThread(void *arg)
+{
+#define SEM1215S_SAMPLE_COUNT_IN_OIS               8
+#define SEM1215S_SAMPLE_INTERVAL                   4000
+
+	int32_t i = 0;
+	uint32_t *data = NULL;
+	uint32_t data_x = 0;
+	uint32_t data_y = 0;
+	uint32_t kfifo_in_len = 0;
+	uint32_t fifo_size_in_ois = SEM1215S_SAMPLE_COUNT_IN_OIS*OIS_HALL_SAMPLE_BYTE;
+	uint32_t fifo_size_in_ois_driver = OIS_HALL_SAMPLE_COUNT*OIS_HALL_SAMPLE_BYTE;
+	unsigned long long timestampQ = 0;
+
+	struct cam_ois_ctrl_t *o_ctrl = (struct cam_ois_ctrl_t *)arg;
+	uint32_t ois_hall_registers[SEM1215S_SAMPLE_COUNT_IN_OIS] = {0x1100, 0x1104, 0x1108, 0x110C, 0x1110, 0x1114, 0x1118,0x111C};
+
+	mutex_lock(&(o_ctrl->ois_hall_data_mutex));
+	kfifo_reset(&(o_ctrl->ois_hall_data_fifo));
+	mutex_unlock(&(o_ctrl->ois_hall_data_mutex));
+
+	data = kzalloc(fifo_size_in_ois, GFP_KERNEL);
+	if (!data) {
+		CAM_ERR(CAM_OIS, "failed to kzalloc");
+		return -1;
+	}
+
+	CAM_DBG(CAM_OIS, "Sem1215sOISPollThread creat");
+
+	while(1) {
+		mutex_lock(&(o_ctrl->ois_poll_thread_mutex));
+		if (o_ctrl->ois_poll_thread_exit) {
+			mutex_unlock(&(o_ctrl->ois_poll_thread_mutex));
+			goto exit;
+		}
+		mutex_unlock(&(o_ctrl->ois_poll_thread_mutex));
+		timestampQ = arch_counter_get_cntvct();
+		//CAM_ERR(CAM_OIS, "trace timestamp:%lld in Qtime", timestampQ);
+
+		memset(data, 0, fifo_size_in_ois);
+		//Read OIS HALL data
+		for (i = 0; i < SEM1215S_SAMPLE_COUNT_IN_OIS; i++) {
+			data[3*i] = timestampQ >> 32;
+			data[3*i+1] = timestampQ & 0xFFFFFFFF;
+			camera_io_dev_read(&(o_ctrl->io_master_info), (uint32_t)ois_hall_registers[i], &data_x,
+		                        CAMERA_SENSOR_I2C_TYPE_WORD, CAMERA_SENSOR_I2C_TYPE_WORD);
+			camera_io_dev_read(&(o_ctrl->io_master_info), (uint32_t)ois_hall_registers[i]+2, &data_y,
+								CAMERA_SENSOR_I2C_TYPE_WORD, CAMERA_SENSOR_I2C_TYPE_WORD);
+			data[3*i+2] = (data_x & 0xFFFF) | ((data_y & 0xFFFF) << 16);
+			timestampQ -= 2*CLOCK_TICKCOUNT_MS;
+		}
+
+		for (i = SEM1215S_SAMPLE_COUNT_IN_OIS - 1; i >= 0; i--) {
+			CAM_DBG(CAM_OIS, "OIS HALL data %lld (0x%x 0x%x)", ((uint64_t)data[3*i] << 32)+(uint64_t)data[3*i+1], (data[3*i+2]&0xFFFF0000)>>16, data[3*i+2]&0xFFFF);
+		}
+
+		mutex_lock(&(o_ctrl->ois_hall_data_mutex));
+		if ((kfifo_len(&(o_ctrl->ois_hall_data_fifo)) + fifo_size_in_ois) > fifo_size_in_ois_driver) {
+			CAM_DBG(CAM_OIS, "ois_hall_data_fifo is full, fifo size %d, file len %d, will reset FIFO", kfifo_size(&(o_ctrl->ois_hall_data_fifo)), kfifo_len(&(o_ctrl->ois_hall_data_fifo)));
+			kfifo_reset(&(o_ctrl->ois_hall_data_fifo));
+		}
+
+		if ((kfifo_len(&(o_ctrl->ois_hall_data_fifo)) + fifo_size_in_ois) <= fifo_size_in_ois_driver) {
+			kfifo_in_len = kfifo_in(&(o_ctrl->ois_hall_data_fifo), data, fifo_size_in_ois);
+			if (kfifo_in_len != fifo_size_in_ois) {
+				CAM_DBG(CAM_OIS, "kfifo_in %d Bytes, FIFO maybe full, some OIS Hall sample maybe dropped.", kfifo_in_len);
+			} else {
+				CAM_DBG(CAM_OIS, "kfifo_in %d Bytes", fifo_size_in_ois);
+			}
+		}
+
+		mutex_unlock(&(o_ctrl->ois_hall_data_mutex));
+		usleep_range(SEM1215S_SAMPLE_COUNT_IN_OIS*SEM1215S_SAMPLE_INTERVAL-5, SEM1215S_SAMPLE_COUNT_IN_OIS*SEM1215S_SAMPLE_INTERVAL);
+	}
+
+exit:
+	kfree(data);
+	CAM_DBG(CAM_OIS, "Sem1215sOISPollThread exit");
+	return 0;
+}
+
 void ReadOISHALLData(struct cam_ois_ctrl_t *o_ctrl, void *data)
 {
 	uint32_t data_size = 0;
@@ -902,6 +985,24 @@ void ReadOISHALLData(struct cam_ois_ctrl_t *o_ctrl, void *data)
 	mutex_unlock(&(o_ctrl->ois_hall_data_mutex));
 }
 
+void Sem1215sReadOISHALLData(struct cam_ois_ctrl_t *o_ctrl, void *data)
+{
+	uint32_t data_size = 0;
+	uint32_t fifo_len_in_ois_driver;
+
+	mutex_lock(&(o_ctrl->ois_hall_data_mutex));
+	fifo_len_in_ois_driver = kfifo_len(&(o_ctrl->ois_hall_data_fifo));
+	if (fifo_len_in_ois_driver > 0) {
+		if (fifo_len_in_ois_driver > OIS_HALL_SAMPLE_COUNT*OIS_HALL_SAMPLE_BYTE) {
+			fifo_len_in_ois_driver = OIS_HALL_SAMPLE_COUNT*OIS_HALL_SAMPLE_BYTE;
+		}
+		kfifo_to_user(&(o_ctrl->ois_hall_data_fifo), data, fifo_len_in_ois_driver, &data_size);
+		CAM_INFO(CAM_OIS, "Copied %d Bytes to UMD", data_size);
+	} else {
+		CAM_INFO(CAM_OIS, "fifo_len is %d, no need copy to UMD", fifo_len_in_ois_driver);
+	}
+	mutex_unlock(&(o_ctrl->ois_hall_data_mutex));
+}
 void OISControl(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 {
 
@@ -909,26 +1010,24 @@ void OISControl(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 
 bool IsOISReady(struct cam_ois_ctrl_t *o_ctrl)
 {
-	uint32_t temp, retry_cnt;
-	retry_cnt = 3;
-
+	uint32_t temp = 0, retry_cnt = 3,rc = 0;
+	CAM_INFO(CAM_OIS, "OIS %s IsOISReady", o_ctrl->ois_name);
 	if (o_ctrl) {
 		if (strstr(o_ctrl->ois_name, ic_name_a) == NULL
-			&& strstr(o_ctrl->ois_name, ic_name_b) == NULL) {
+			&& strstr(o_ctrl->ois_name, ic_name_b) == NULL
+			&& strstr(o_ctrl->ois_name, "sem1215s") == NULL) {
 			return true;
 		}
 		if (CAM_OIS_READY == ois_state[o_ctrl->ois_type]) {
 			CAM_INFO(CAM_OIS, "OIS %d is ready", o_ctrl->ois_type);
 
 			mutex_lock(&(o_ctrl->ois_poll_thread_mutex));
-			if (o_ctrl->ois_poll_thread) {
+			if (o_ctrl->ois_poll_thread && (strstr(o_ctrl->ois_name, "sem1215s"))) {
 				CAM_ERR(CAM_OIS, "ois_poll_thread is already created, no need to create again.");
 			} else {
 				o_ctrl->ois_poll_thread_exit = false;
-				if (strstr(o_ctrl->ois_name, "128")) {
-					o_ctrl->ois_poll_thread = kthread_run(OISPollThread128, o_ctrl, o_ctrl->ois_name);
-				} else if (strstr(o_ctrl->ois_name, "124")) {
-					o_ctrl->ois_poll_thread = kthread_run(OISPollThread124, o_ctrl, o_ctrl->ois_name);
+				if (strstr(o_ctrl->ois_name, "1215")) {
+					o_ctrl->ois_poll_thread = kthread_run(Sem1215sOISPollThread, o_ctrl, o_ctrl->ois_name);
 				}
 				if (!o_ctrl->ois_poll_thread) {
 					o_ctrl->ois_poll_thread_exit = true;
@@ -940,9 +1039,13 @@ bool IsOISReady(struct cam_ois_ctrl_t *o_ctrl)
 			return true;
 		} else {
 			do {
-				RamRead32A(0xF100, &temp);
-				CAM_ERR(CAM_OIS, "OIS %d 0xF100 = 0x%x", o_ctrl->ois_type, temp);
-				if (temp == 0) {
+				rc = camera_io_dev_read(&(o_ctrl->io_master_info), REG_OIS_STS, &temp,
+					CAMERA_SENSOR_I2C_TYPE_WORD, CAMERA_SENSOR_I2C_TYPE_BYTE);
+				if (rc < 0) {
+					CAM_ERR(CAM_OIS, "read REG_OIS_STS fail");
+				}
+				CAM_ERR(CAM_OIS, "%s REG_OIS_STS:0x%x",__func__,temp);
+				if (temp == 0x02) {
 					ois_state[o_ctrl->ois_type] = CAM_OIS_READY;
 					return true;
 				}

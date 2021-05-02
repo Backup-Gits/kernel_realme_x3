@@ -30,6 +30,7 @@ void CheckOISfwVersion(void);
 int OISRamWriteWord(struct cam_ois_ctrl_t *ois_ctrl, uint32_t addr, uint32_t data);
 int OISRead(struct cam_ois_ctrl_t *o_ctrl, uint32_t addr, uint32_t* data);
 void forceExitpoll(struct cam_ois_ctrl_t *o_ctrl);
+void Sem1215sReadOISHALLData(struct cam_ois_ctrl_t *o_ctrl, void *data);
 #endif
 /* _DOWNLOAD_OIS_FW_H_ */
 
