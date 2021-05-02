@@ -31,6 +31,19 @@ struct oppo_gauge_chip {
 
 struct oppo_gauge_operations {
 	int (*get_battery_mvolts)(void);
+	int (*get_battery_fc)(void);
+	int (*get_battery_qm)(void);
+	int (*get_battery_pd)(void);
+	int (*get_battery_rcu)(void);
+	int (*get_battery_rcf)(void);
+	int (*get_battery_fcu)(void);
+	int (*get_battery_fcf)(void);
+	int (*get_battery_sou)(void);
+	int (*get_battery_do0)(void);
+	int (*get_battery_doe)(void);
+	int (*get_battery_trm)(void);
+	int (*get_battery_pc)(void);
+	int (*get_battery_qs)(void);
 	int (*get_battery_temperature)(void);
 	int (*get_batt_remaining_capacity)(void);
 	int (*get_battery_soc)(void);
@@ -63,6 +76,19 @@ struct oppo_gauge_operations {
 void oppo_gauge_init(struct oppo_gauge_chip *chip);
 
 int oppo_gauge_get_batt_mvolts(void);
+int oppo_gauge_get_batt_fc(void);
+int oppo_gauge_get_batt_qm(void);
+int oppo_gauge_get_batt_pd(void);
+int oppo_gauge_get_batt_rcu(void);
+int oppo_gauge_get_batt_rcf(void);
+int oppo_gauge_get_batt_fcu(void);
+int oppo_gauge_get_batt_fcf(void);
+int oppo_gauge_get_batt_sou(void);
+int oppo_gauge_get_batt_do0(void);
+int oppo_gauge_get_batt_doe(void);
+int oppo_gauge_get_batt_trm(void);
+int oppo_gauge_get_batt_pc(void);
+int oppo_gauge_get_batt_qs(void);
 int oppo_gauge_get_batt_mvolts_2cell_max(void);
 int oppo_gauge_get_batt_mvolts_2cell_min(void);
 

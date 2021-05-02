@@ -46,6 +46,136 @@ int oppo_gauge_get_batt_mvolts(void)
 	}
 }
 
+int oppo_gauge_get_batt_fc(void)
+{
+	if (!g_gauge_chip || !g_gauge_chip->gauge_ops
+		|| !g_gauge_chip->gauge_ops->get_battery_fc) {
+		return 0;
+	} else {
+		return g_gauge_chip->gauge_ops->get_battery_fc();
+	}
+}
+
+int oppo_gauge_get_batt_qm(void)
+{
+	if (!g_gauge_chip || !g_gauge_chip->gauge_ops
+		|| !g_gauge_chip->gauge_ops->get_battery_qm) {
+		return 0;
+	} else {
+		return g_gauge_chip->gauge_ops->get_battery_qm();
+	}
+}
+
+int oppo_gauge_get_batt_pd(void)
+{
+	if (!g_gauge_chip || !g_gauge_chip->gauge_ops
+		|| !g_gauge_chip->gauge_ops->get_battery_pd) {
+		return 0;
+	} else {
+		return g_gauge_chip->gauge_ops->get_battery_pd();
+	}
+}
+
+int oppo_gauge_get_batt_rcu(void)
+{
+	if (!g_gauge_chip || !g_gauge_chip->gauge_ops
+		|| !g_gauge_chip->gauge_ops->get_battery_rcu) {
+		return 0;
+	} else {
+		return g_gauge_chip->gauge_ops->get_battery_rcu();
+	}
+}
+
+int oppo_gauge_get_batt_rcf(void)
+{
+	if (!g_gauge_chip || !g_gauge_chip->gauge_ops
+		|| !g_gauge_chip->gauge_ops->get_battery_rcf) {
+		return 0;
+	} else {
+		return g_gauge_chip->gauge_ops->get_battery_rcf();
+	}
+}
+
+int oppo_gauge_get_batt_fcu(void)
+{
+	if (!g_gauge_chip || !g_gauge_chip->gauge_ops
+		|| !g_gauge_chip->gauge_ops->get_battery_fcu) {
+		return 0;
+	} else {
+		return g_gauge_chip->gauge_ops->get_battery_fcu();
+	}
+}
+
+int oppo_gauge_get_batt_fcf(void)
+{
+	if (!g_gauge_chip || !g_gauge_chip->gauge_ops
+		|| !g_gauge_chip->gauge_ops->get_battery_fcf) {
+		return 0;
+	} else {
+		return g_gauge_chip->gauge_ops->get_battery_fcf();
+	}
+}
+
+int oppo_gauge_get_batt_sou(void)
+{
+	if (!g_gauge_chip || !g_gauge_chip->gauge_ops
+		|| !g_gauge_chip->gauge_ops->get_battery_sou) {
+		return 0;
+	} else {
+		return g_gauge_chip->gauge_ops->get_battery_sou();
+	}
+}
+
+int oppo_gauge_get_batt_do0(void)
+{
+	if (!g_gauge_chip || !g_gauge_chip->gauge_ops
+		|| !g_gauge_chip->gauge_ops->get_battery_do0) {
+		return 0;
+	} else {
+		return g_gauge_chip->gauge_ops->get_battery_do0();
+	}
+}
+
+int oppo_gauge_get_batt_doe(void)
+{
+	if (!g_gauge_chip || !g_gauge_chip->gauge_ops
+		|| !g_gauge_chip->gauge_ops->get_battery_doe) {
+		return 0;
+	} else {
+		return g_gauge_chip->gauge_ops->get_battery_doe();
+	}
+}
+
+int oppo_gauge_get_batt_trm(void)
+{
+	if (!g_gauge_chip || !g_gauge_chip->gauge_ops
+		|| !g_gauge_chip->gauge_ops->get_battery_trm) {
+		return 0;
+	} else {
+		return g_gauge_chip->gauge_ops->get_battery_trm();
+	}
+}
+
+int oppo_gauge_get_batt_pc(void)
+{
+	if (!g_gauge_chip || !g_gauge_chip->gauge_ops
+		|| !g_gauge_chip->gauge_ops->get_battery_pc) {
+		return 0;
+	} else {
+		return g_gauge_chip->gauge_ops->get_battery_pc();
+	}
+}
+
+int oppo_gauge_get_batt_qs(void)
+{
+	if (!g_gauge_chip || !g_gauge_chip->gauge_ops
+		|| !g_gauge_chip->gauge_ops->get_battery_qs) {
+		return 0;
+	} else {
+		return g_gauge_chip->gauge_ops->get_battery_qs();
+	}
+}
+
 int oppo_gauge_get_batt_mvolts_2cell_max(void)
 {
 	if(!g_gauge_chip)
@@ -161,14 +291,10 @@ int oppo_gauge_get_batt_soh(void)
 
 bool oppo_gauge_get_batt_authenticate(void)
 {
-	bool authenticate = false;
 	if (!g_gauge_chip) {
-		printk(KERN_ERR "[OPPO_CHG]%s: authenticate false\n", __func__);
 		return false;
 	} else {
-		authenticate = g_gauge_chip->gauge_ops->get_battery_authenticate();
-		printk(KERN_ERR "[OPPO_CHG]%s: authenticate: %d\n", __func__, authenticate);
-		return authenticate;
+		return g_gauge_chip->gauge_ops->get_battery_authenticate();
 	}
 }
 

@@ -17,7 +17,7 @@
 #include <linux/delay.h>
 #include <linux/power_supply.h>
 #include <linux/proc_fs.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/of_gpio.h>
 #include <linux/kthread.h>
 #include <linux/version.h>
@@ -128,6 +128,7 @@ MODULE_PARM_DESC(chgr_dbg_total_time, "debug charger total time");
 static int reset_mcu_delay = 0;
 static bool vbatt_higherthan_4180mv = false;
 static bool vbatt_lowerthan_3300mv = false;
+static int vbat_num_flag = 0;
 
 enum power_supply_property oppo_usb_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
@@ -585,7 +586,11 @@ int oppo_battery_get_property(struct power_supply *psy,
 			val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
 			break;
 		case POWER_SUPPLY_PROP_CAPACITY:
-			val->intval = chip->ui_soc;
+			if(chip->ui_soc > 100) {
+                val->intval = 100;
+			} else {
+                val->intval = chip->ui_soc;
+			}
 			break;
 
 //#ifdef CONFIG_OPPO_CHIP_SOC_NODE
@@ -1507,6 +1512,7 @@ int oppo_chg_parse_svooc_dt(struct oppo_chg_chip *chip)
 	if (rc) {
 		chip->vbatt_num = 1;
 	}
+	vbat_num_flag = chip->vbatt_num;
 	rc = of_property_read_u32(node, "qcom,vooc_project", &chip->vooc_project);
 	if (rc < 0) {
 		chip->vooc_project = 0;
@@ -1515,6 +1521,10 @@ int oppo_chg_parse_svooc_dt(struct oppo_chg_chip *chip)
 	chg_err("oppo_parse_svooc_dt, chip->vbatt_num = %d,chip->vooc_project = %d.\n",
 			chip->vbatt_num,chip->vooc_project);
 	return 0;
+}
+
+int pd_get_vbat_num_flag(void){
+	return vbat_num_flag;
 }
 
 int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
@@ -3098,8 +3108,7 @@ static void oppo_chg_voter_charging_stop(struct oppo_chg_chip *chip,
 			chip->charging_state = CHARGING_STATUS_FAIL;
 			chip->total_time = 0;
 			if (oppo_vooc_get_allow_reading() == true) {
-				chip->chg_ops->charger_suspend();
-				break;
+				chip->chg_ops->charger_unsuspend();
 			}
 			oppo_chg_turn_off_charging(chip);
 			break;
@@ -5266,42 +5275,51 @@ static void oppo_chg_kpoc_power_off_check(struct oppo_chg_chip *chip)
 
 static void oppo_chg_print_log(struct oppo_chg_chip *chip)
 {
-
-//yangmingjin@BSP.POWER.Basic 2019/05/30 modify for RM_TAG_POWER_DEBUG
-#ifdef VENDOR_EDIT
-        char log_buf[OPPO_CHARGE_LOG_BUF_SIZE];
-        int count = get_utc_time(log_buf, OPPO_CHARGE_LOG_BUF_SIZE);
-
-        count += snprintf(log_buf+count, OPPO_CHARGE_LOG_BUF_SIZE-count, " CHGR[%d,%d,%d,%d,%d], BAT[%d,%d,%d,%d,%d,%d], GAUGE[%d,%d,%d,%d,%d,%d,%d,%d,%d], "
-                "STATUS[ 0x%x,%d,%d,%d,%d,0x%x], OTHER[%d,%d,%d,%d,%d,%d,%d]",
-        chip->charger_exist, chip->charger_type, chip->charger_volt, chip->prop_status, chip->boot_mode,
-        chip->batt_exist, chip->batt_full, chip->chging_on, chip->in_rechging, chip->charging_state, chip->total_time,
-        chip->temperature, chip->batt_volt, chip->batt_volt_min, chip->icharging, chip->ibus, chip->soc, chip->ui_soc, chip->soc_load, chip->batt_rm,
-        chip->vbatt_over, chip->chging_over_time, chip->vchg_status, chip->tbatt_status, chip->stop_voter, chip->notify_code,
-        chip->otg_switch, chip->mmi_chg, chip->boot_reason, chip->boot_mode, chip->chargerid_volt, chip->chargerid_volt_got, chip->led_on);
-
-        log_buf[count] = '\0';
-        charger_xlog_printk(CHG_LOG_CRTI, "%s", log_buf);
-#else
 	/* wenbin.liu@SW.Bsp.Driver, 2016/02/29  Add for log tag*/
-	charger_xlog_printk(CHG_LOG_CRTI,
-		" CHGR[ %d / %d / %d / %d / %d ], \
-		BAT[ %d / %d / %d / %d / %d / %d ], \
-		GAUGE[ %d / %d / %d / %d / %d / %d / %d / %d / %d ], "
-		"STATUS[ 0x%x / %d / %d / %d / %d / 0x%x ], \
-		OTHER[ %d / %d / %d / %d / %d/ %d ]\n",
-		chip->charger_exist, chip->charger_type, chip->charger_volt,
-		chip->prop_status, chip->boot_mode,
-		chip->batt_exist, chip->batt_full, chip->chging_on, chip->in_rechging,
-		chip->charging_state, chip->total_time,
-		chip->temperature, chip->batt_volt, chip->batt_volt_min, chip->icharging,
-		chip->ibus, chip->soc, chip->ui_soc, chip->soc_load, chip->batt_rm,
-		chip->vbatt_over, chip->chging_over_time, chip->vchg_status,
-		chip->tbatt_status, chip->stop_voter, chip->notify_code,
-		chip->otg_switch, chip->mmi_chg, chip->boot_reason, chip->boot_mode,
-		chip->chargerid_volt, chip->chargerid_volt_got);
-#endif
-/*VENDOR_EDIT*/
+	if(chip->vbatt_num == 1){
+		charger_xlog_printk(CHG_LOG_CRTI,
+			" CHGR[ %d / %d / %d / %d / %d ], \
+			BAT[ %d / %d / %d / %d / %d / %d ], \
+			GAUGE[ %d / %d / %d / %d / %d / %d / %d / %d / %d \
+			/ %d / %d / %d / %d / %d / %d / %d / %d / %d \
+			/ %d / %d / %d / %d /], "
+			"STATUS[ 0x%x / %d / %d / %d / %d / 0x%x ], \
+			OTHER[ %d / %d / %d / %d / %d/ %d ]\n",
+			chip->charger_exist, chip->charger_type, chip->charger_volt,
+			chip->prop_status, chip->boot_mode,
+			chip->batt_exist, chip->batt_full, chip->chging_on, chip->in_rechging,
+			chip->charging_state, chip->total_time,
+			chip->temperature, chip->batt_volt, chip->batt_volt_min, chip->icharging,
+			chip->ibus, chip->soc, chip->ui_soc, chip->soc_load, chip->batt_rm,
+			oppo_gauge_get_batt_fc(),oppo_gauge_get_batt_qm(),
+			oppo_gauge_get_batt_pd(),oppo_gauge_get_batt_rcu(),
+			oppo_gauge_get_batt_rcf(),oppo_gauge_get_batt_fcu(),
+			oppo_gauge_get_batt_fcf(),oppo_gauge_get_batt_sou(),
+			oppo_gauge_get_batt_do0(),oppo_gauge_get_batt_doe(),
+			oppo_gauge_get_batt_trm(),oppo_gauge_get_batt_pc(),
+			oppo_gauge_get_batt_qs(),
+			chip->vbatt_over, chip->chging_over_time, chip->vchg_status,
+			chip->tbatt_status, chip->stop_voter, chip->notify_code,
+			chip->otg_switch, chip->mmi_chg, chip->boot_reason, chip->boot_mode,
+			chip->chargerid_volt, chip->chargerid_volt_got);
+	}else{
+		charger_xlog_printk(CHG_LOG_CRTI,
+			" CHGR[ %d / %d / %d / %d / %d ], \
+			BAT[ %d / %d / %d / %d / %d / %d ], \
+			GAUGE[ %d / %d / %d / %d / %d / %d / %d / %d / %d ], "
+			"STATUS[ 0x%x / %d / %d / %d / %d / 0x%x ], \
+			OTHER[ %d / %d / %d / %d / %d/ %d ]\n",
+			chip->charger_exist, chip->charger_type, chip->charger_volt,
+			chip->prop_status, chip->boot_mode,
+			chip->batt_exist, chip->batt_full, chip->chging_on, chip->in_rechging,
+			chip->charging_state, chip->total_time,
+			chip->temperature, chip->batt_volt, chip->batt_volt_min, chip->icharging,
+			chip->ibus, chip->soc, chip->ui_soc, chip->soc_load, chip->batt_rm,
+			chip->vbatt_over, chip->chging_over_time, chip->vchg_status,
+			chip->tbatt_status, chip->stop_voter, chip->notify_code,
+			chip->otg_switch, chip->mmi_chg, chip->boot_reason, chip->boot_mode,
+			chip->chargerid_volt, chip->chargerid_volt_got);
+	}
 #ifdef CONFIG_OPPO_EMMC_LOG
 /*Jingchun.Wang@BSP.Kernel.Debug, 2016/12/21,*/
 /*add for emmc log*/
@@ -5997,7 +6015,7 @@ void oppo_smart_charge_by_cool_down(struct oppo_chg_chip *chip, int val)
 		if (oppo_vooc_get_vooc_multistep_adjust_current_support() == false)
 			chip->cool_down = 1;
 		else
-			chip->cool_down = 2;
+			chip->cool_down = 3;
 	} else if (val & SMART_VOOC_CHARGER_CURRENT_BIT2) {
 		if (oppo_vooc_get_vooc_multistep_adjust_current_support() == false)
 			chip->cool_down = 1;

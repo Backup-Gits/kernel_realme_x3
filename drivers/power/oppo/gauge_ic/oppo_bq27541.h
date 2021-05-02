@@ -108,6 +108,19 @@
 #define BQ27411_REG_SOC				0x1c
 #define BQ27411_REG_INTTEMP			0x1e
 #define BQ27411_REG_SOH				0x20
+#define BQ27411_REG_FC			0x0e //add gauge reg print log start
+#define BQ27411_REG_QM			0x16
+#define BQ27411_REG_PD			0x1a
+#define BQ27411_REG_RCU			0x28
+#define BQ27411_REG_RCF			0x2a
+#define BQ27411_REG_FCU			0x2c
+#define BQ27411_REG_FCF			0x2e
+#define BQ27411_REG_SOU			0x30
+#define BQ27411_REG_DO0			0x66
+#define BQ27411_REG_DOE			0x68
+#define BQ27411_REG_TRM			0x6a
+#define BQ27411_REG_PC			0x6c
+#define BQ27411_REG_QS			0x6e //add gauge reg print log end 
 #define BQ27411_FLAG_DSC			BIT(0)
 #define BQ27411_FLAG_FC				BIT(9)
 #define BQ27411_CS_DLOGEN			BIT(15)
@@ -182,7 +195,7 @@
 #define BQ27411_RESET_SUBCMD		0x0042
 #define SEAL_SUBCMD					0x0020
 
-#define BQ27411_CONFIG_MODE_POLLING_LIMIT	60
+#define BQ27411_CONFIG_MODE_POLLING_LIMIT	100
 #define BQ27411_CONFIG_MODE_BIT				BIT(4)
 #define BQ27411_BLOCK_DATA_CONTROL			0x61
 #define BQ27411_DATA_CLASS_ACCESS			0x003e
@@ -252,6 +265,19 @@ struct cmd_address {
 	u8	reg_soc;
 	u8	reg_inttemp;
 	u8	reg_soh;
+	u8	reg_fc; //add gauge reg print log start
+	u8	reg_qm;
+	u8	reg_pd;
+	u8	reg_rcu;
+	u8	reg_rcf;
+	u8	reg_fcu;
+	u8	reg_fcf;
+	u8	reg_sou;
+	u8	reg_do0;
+	u8	reg_doe;
+	u8	reg_trm;
+	u8	reg_pc;
+	u8	reg_qs; //add gauge reg print log end
 	u16	flag_dsc;
 	u16	flag_fc;
 	u16	cs_dlogen;
@@ -320,6 +346,19 @@ struct chip_bq27541 {
 	int soh_pre;
 	int fcc_pre;
 	int rm_pre;
+	int fc_pre; //add gauge reg print log start
+	int qm_pre;
+	int pd_pre;
+	int rcu_pre;
+	int rcf_pre;
+	int fcu_pre;
+	int fcf_pre;
+	int sou_pre;
+	int do0_pre;
+	int doe_pre;
+	int trm_pre;
+	int pc_pre;
+	int qs_pre; //add gauge reg print log end
 	int device_type;
 	int device_type_for_vooc;
 	struct cmd_address cmd_addr;
@@ -352,6 +391,7 @@ struct chip_bq27541 {
 
 	bool modify_soc_smooth;
 	bool batt_bq28z610;
+	bool battery_full_param;//only for wite battery full param in guage dirver probe on 7250 platform
 
 };
 

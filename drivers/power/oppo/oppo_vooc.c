@@ -15,7 +15,7 @@
 ***********************************************************************************/
 #include <linux/delay.h>
 #include <linux/proc_fs.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #include "oppo_charger.h"
 #include "oppo_vooc.h"
@@ -597,6 +597,19 @@ static void oppo_vooc_fastchg_func(struct work_struct *work)
 		}
 		if (oppo_get_fg_i2c_err_occured() == false) {
 			remain_cap = oppo_gauge_get_remaining_capacity();
+			oppo_gauge_get_batt_fc();
+			oppo_gauge_get_batt_qm();
+			oppo_gauge_get_batt_pd();
+			oppo_gauge_get_batt_rcu();
+			oppo_gauge_get_batt_rcf();
+			oppo_gauge_get_batt_fcu();
+			oppo_gauge_get_batt_fcf();
+			oppo_gauge_get_batt_sou();
+			oppo_gauge_get_batt_do0();
+			oppo_gauge_get_batt_doe();
+			oppo_gauge_get_batt_trm();
+			oppo_gauge_get_batt_pc();
+			oppo_gauge_get_batt_qs();
 		}
 		oppo_chg_kick_wdt();
 		if (chip->support_vooc_by_normal_charger_path) {//65w

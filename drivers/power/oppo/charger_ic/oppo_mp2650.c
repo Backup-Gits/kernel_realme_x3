@@ -1393,13 +1393,15 @@ void mp2650_dump_registers(void)
         if (rc) {
              chg_err("Couldn't  read 0x49 rc = %d\n", rc);
         }
-
+#ifndef VENDOR_EDIT
+//Kai.Huang@BSP.CHG.Basic  2020/2/11  Delete too many printed logs
         printk(KERN_ERR "mp2650[0-0C]: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x,", 
 			val_buf[0], val_buf[1], val_buf[2], val_buf[3], val_buf[4], val_buf[5], val_buf[6], val_buf[7], val_buf[8], val_buf[9], val_buf[10], val_buf[11], val_buf[12]);
         printk(KERN_ERR "mp2650[0D-19]: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x,", 
 			val_buf[13], val_buf[14], val_buf[15], val_buf[16], val_buf[17], val_buf[18], val_buf[19], val_buf[20], val_buf[21], val_buf[22], val_buf[23], val_buf[24], val_buf[25]);
         printk(KERN_ERR "mp2650[1A-22, 48, 49]: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, reg48=0x%x, reg49=0x%x \n", 
 			val_buf[26], val_buf[27], val_buf[28], val_buf[29], val_buf[30], val_buf[31], val_buf[32], val_buf[33], val_buf[34], val_buf[35], val_buf[36]);
+#endif
     }
     dump_count++;
 }
