@@ -29,6 +29,11 @@
 #include <linux/bitops.h>
 #include <trace/events/jbd2.h>
 
+#if defined(VENDOR_EDIT) && defined(CONFIG_UFSTW)
+/* Hank.liu@TECH.PLAT.Storage, 2019-10-31, add UFS+ hpb and tw driver*/
+#include <linux/ufstw.h>
+#endif
+
 /*
  * IO end handler for temporary buffer_heads handling writes to the journal.
  */
@@ -532,6 +537,10 @@ void jbd2_journal_commit_transaction(journal_t *journal)
 	write_unlock(&journal->j_state_lock);
 
 	jbd_debug(3, "JBD2: commit phase 2a\n");
+#if defined(VENDOR_EDIT) && defined(CONFIG_UFSTW)
+	/* Hank.liu@TECH.PLAT.Storage, 2019-10-31, add UFS+ hpb and tw driver*/
+	bdev_set_turbo_write(journal->j_dev);
+#endif
 
 	/*
 	 * Now start flushing things to disk, in the order they appear
@@ -1132,6 +1141,10 @@ restart_loop:
 	write_unlock(&journal->j_state_lock);
 	wake_up(&journal->j_wait_done_commit);
 
+#if defined(VENDOR_EDIT) && defined(CONFIG_UFSTW)
+	/* Hank.liu@TECH.PLAT.Storage, 2019-10-31, add UFS+ hpb and tw driver*/
+	bdev_clear_turbo_write(journal->j_dev);
+#endif
 	/*
 	 * Calculate overall stats
 	 */
