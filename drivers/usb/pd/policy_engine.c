@@ -857,6 +857,7 @@ static int pd_select_pdo(struct usbpd *pd, int pdo_pos, int uv, int ua)
 	return 0;
 }
 
+extern bool oppochg_pd_sdp;
 static int pd_eval_src_caps(struct usbpd *pd)
 {
 	int i;
@@ -894,7 +895,11 @@ static int pd_eval_src_caps(struct usbpd *pd)
 			POWER_SUPPLY_PD_ACTIVE;
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_ACTIVE, &val);
-
+	
+	if (pd->peer_usb_comm && pd->current_dr == DR_UFP && !pd->pd_connected) {
+			printk("set oppochg_pd_sdp = true\n");
+			oppochg_pd_sdp = true;
+	}
 	/* First time connecting to a PD source and it supports USB data */
 	if (pd->peer_usb_comm && pd->current_dr == DR_UFP && !pd->pd_connected)
 		start_usb_peripheral(pd);
@@ -4086,6 +4091,7 @@ static ssize_t select_pdo_store(struct device *dev,
 	int src_cap_id;
 	int pdo, uv = 0, ua = 0;
 	int ret;
+	int bat_flag = 0;
 
 	mutex_lock(&pd->swap_lock);
 
@@ -4097,6 +4103,10 @@ static ssize_t select_pdo_store(struct device *dev,
 	}
 
 	ret = sscanf(buf, "%d %d %d %d", &src_cap_id, &pdo, &uv, &ua);
+	bat_flag = pd_get_vbat_num_flag();
+	if ((pdo > 1) && (bat_flag == 1)) {
+		pdo = 1;
+	}
 	if (ret != 2 && ret != 4) {
 		usbpd_err(&pd->dev, "select_pdo: Must specify <src cap id> <PDO> [<uV> <uA>]\n");
 		ret = -EINVAL;
