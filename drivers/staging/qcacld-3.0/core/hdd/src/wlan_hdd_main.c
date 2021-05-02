@@ -3520,25 +3520,23 @@ static int __hdd_open(struct net_device *dev)
 		   TRACE_CODE_HDD_OPEN_REQUEST,
 		   adapter->session_id, adapter->device_mode);
 
-	mutex_lock(&hdd_init_deinit_lock);
 	/* Nothing to be done if device is unloading */
 	if (cds_is_driver_unloading()) {
-		mutex_unlock(&hdd_init_deinit_lock);
 		hdd_err("Driver is unloading can not open the hdd");
 		return -EBUSY;
 	}
 
 	if (cds_is_driver_recovering()) {
-		mutex_unlock(&hdd_init_deinit_lock);
 		hdd_err("WLAN is currently recovering; Please try again.");
 		return -EBUSY;
 	}
 
 	if (qdf_atomic_read(&hdd_ctx->con_mode_flag)) {
-		mutex_unlock(&hdd_init_deinit_lock);
 		hdd_err("con_mode_handler is in progress; Please try again.");
 		return -EBUSY;
 	}
+
+	mutex_lock(&hdd_init_deinit_lock);
 	hdd_start_driver_ops_timer(eHDD_DRV_OP_IFF_UP);
 
 	/*
@@ -6327,6 +6325,7 @@ QDF_STATUS hdd_stop_adapter_ext(struct hdd_context *hdd_ctx,
 			clear_bit(ACS_PENDING, &adapter->event_flags);
 		}
 		wlan_hdd_scan_abort(adapter);
+		hdd_abort_ongoing_sta_connection(hdd_ctx);
 		/* Diassociate with all the peers before stop ap post */
 		if (test_bit(SOFTAP_BSS_STARTED, &adapter->event_flags))
 			wlan_hdd_del_station(adapter);
@@ -6361,28 +6360,14 @@ QDF_STATUS hdd_stop_adapter_ext(struct hdd_context *hdd_ctx,
 		}
 
 		wlan_hdd_undo_acs(adapter);
-		if (adapter->device_mode == QDF_P2P_GO_MODE)
+		if (adapter->device_mode == QDF_P2P_GO_MODE) {
 			wlan_hdd_cleanup_remain_on_channel_ctx(adapter);
+			hdd_abort_ongoing_sta_connection(hdd_ctx);
+		}
 
 		hdd_deregister_tx_flow_control(adapter);
 
 		hdd_destroy_acs_timer(adapter);
-		/**
-		 * During vdev destroy, If any STA is in connecting state the
-		 * roam command will be in active queue and thus vdev destroy is
-		 * queued in pending queue. In case STA is tries to connected to
-		 * multiple BSSID and fails to connect, due to auth/assoc
-		 * timeouts it may take more than vdev destroy time to get
-		 * completes. If vdev destroy timeout vdev is moved to logically
-		 * deleted state. Once connection is completed, vdev destroy is
-		 * activated and to release the self-peer ref count it try to
-		 * get the ref of the vdev, which fails as vdev is logically
-		 * deleted and this leads to peer ref leak. So before vdev
-		 * destroy is queued abort any STA ongoing connection to avoid
-		 * vdev destroy timeout.
-		 */
-		if (test_bit(SME_SESSION_OPENED, &adapter->event_flags))
-			hdd_abort_ongoing_sta_connection(hdd_ctx);
 
 		mutex_lock(&hdd_ctx->sap_lock);
 		if (test_bit(SOFTAP_BSS_STARTED, &adapter->event_flags)) {
@@ -12666,6 +12651,7 @@ int hdd_wlan_stop_modules(struct hdd_context *hdd_ctx, bool ftm_mode)
 		}
 	}
 
+	hdd_bus_bw_compute_timer_stop(hdd_ctx);
 	hdd_deregister_policy_manager_callback(hdd_ctx->psoc);
 
 	/* free user wowl patterns */
@@ -14517,10 +14503,8 @@ static void hdd_driver_unload(void)
 	if (!hdd_wait_for_recovery_completion())
 		return;
 
-	mutex_lock(&hdd_init_deinit_lock);
 	cds_set_driver_loaded(false);
 	cds_set_unload_in_progress(true);
-	mutex_unlock(&hdd_init_deinit_lock);
 
 	if (hdd_ctx)
 		hdd_psoc_idle_timer_stop(hdd_ctx);
