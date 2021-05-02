@@ -1,28 +1,13 @@
- /************************************************************************************
-** File: - fingerprints_hal\drivers\goodix_fp\gf_spi.h
-** VENDOR_EDIT
-** Copyright (C), 2008-2016, OPPO Mobile Comm Corp., Ltd
-**
-** Description:
-**      driver definition for sensor driver
-**
-** Version: 1.0
-** Date created: 15:03:11,12/08/2017
-** Author:oujinrong@BSP.Fingerprint.Basic
-** TAG: BSP.Fingerprint.Basic
-**
-** --------------------------- Revision History: --------------------------------
-** <author>     <data>        <desc>
-**  oujinrong   2019/09/03    add power list for Euclid
-************************************************************************************/
-
+/*
+ * driver definition for sensor driver
+ *
+ * Coypright (c) 2017 Goodix
+ */
 #ifndef __GF_SPI_H
 #define __GF_SPI_H
 
 #include <linux/types.h>
 #include <linux/notifier.h>
-#include "../include/oppo_fp_common.h"
-
 /**********************************************************/
 enum FP_MODE{
 	GF_IMAGE_MODE = 0,
@@ -108,10 +93,10 @@ struct gf_ioc_chip_info {
 #define GF_IOC_GET_FW_INFO      _IOR(GF_IOC_MAGIC, 11, uint8_t)
 #define GF_IOC_REMOVE           _IO(GF_IOC_MAGIC, 12)
 #define GF_IOC_CHIP_INFO        _IOW(GF_IOC_MAGIC, 13, struct gf_ioc_chip_info)
+#define GF_IOC_POWER_RESET      _IO(GF_IOC_MAGIC, 17)
 
 #define GF_IOC_WAKELOCK_TIMEOUT_ENABLE        _IO(GF_IOC_MAGIC, 18 )
 #define GF_IOC_WAKELOCK_TIMEOUT_DISABLE        _IO(GF_IOC_MAGIC, 19 )
-#define GF_IOC_CLEAN_TOUCH_FLAG        _IO(GF_IOC_MAGIC, 20 )
 
 #if defined(SUPPORT_NAV_EVENT)
 #define GF_IOC_NAV_EVENT	_IOW(GF_IOC_MAGIC, 14, gf_nav_event_t)
@@ -125,21 +110,10 @@ struct gf_ioc_chip_info {
 //#define  USE_SPI_BUS	1
 //#define GF_FASYNC   1	/*If support fasync mechanism.*/
 #define GF_NETLINK_ENABLE 1
+#define GF_NET_EVENT_IRQ 1
 #define GF_NET_EVENT_FB_BLACK 2
 #define GF_NET_EVENT_FB_UNBLACK 3
 #define NETLINK_TEST 25
-
-enum NETLINK_CMD {
-    GF_NET_EVENT_TEST = 0,
-    GF_NET_EVENT_IRQ = 1,
-    GF_NET_EVENT_SCR_OFF,
-    GF_NET_EVENT_SCR_ON,
-    GF_NET_EVENT_TP_TOUCHDOWN,
-    GF_NET_EVENT_TP_TOUCHUP,
-    GF_NET_EVENT_UI_READY,
-    GF_NET_EVENT_MAX,
-};
-
 
 struct gf_dev {
 	dev_t devt;
@@ -167,13 +141,8 @@ struct gf_dev {
 	struct notifier_block notifier;
 	char device_available;
 	char fb_black;
-
-    /* jinrong add for power */
-    unsigned power_num;
-    fp_power_info_t pwr_list[FP_MAX_PWR_LIST_LEN];
-    uint32_t notify_tpinfo_flag;
+	struct regulator *vreg[1];
 };
-
 
 int gf_parse_dts(struct gf_dev* gf_dev);
 void gf_cleanup(struct gf_dev *gf_dev);
@@ -181,15 +150,11 @@ void gf_cleanup(struct gf_dev *gf_dev);
 int gf_power_on(struct gf_dev *gf_dev);
 int gf_power_off(struct gf_dev *gf_dev);
 
+int gf_power_reset(struct gf_dev *gf_dev);
 int gf_hw_reset(struct gf_dev *gf_dev, unsigned int delay_ms);
 int gf_irq_num(struct gf_dev *gf_dev);
 
 void sendnlmsg(char *msg);
 int netlink_init(void);
 void netlink_exit(void);
-int gf_opticalfp_irq_handler(struct fp_underscreen_info* tp_info);
-
-void gf_cleanup_pwr_list(struct gf_dev* gf_dev);
-int gf_parse_pwr_list(struct gf_dev* gf_dev);
-
 #endif /*__GF_SPI_H*/

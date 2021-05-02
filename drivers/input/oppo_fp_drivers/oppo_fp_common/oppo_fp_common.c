@@ -58,10 +58,7 @@
 #include <linux/delay.h>
 #include <linux/string.h>
 #include "../include/oppo_fp_common.h"
-extern char *saved_command_line;
-
 #include <linux/uaccess.h>
-#include <linux/soc/qcom/smem.h>
 
 #define FP_GPIO_NODE           "oppo,fp_gpio"
 #define FP_ID_VALUE_NODE       "oppo,fp-id"
@@ -78,6 +75,7 @@ static char *fp_id_name = "fp_id";
 static char *lcd_type = "lcd_type";
 static struct proc_dir_entry *oppo_fp_common_dir = NULL;
 static char *oppo_fp_common_dir_name = "oppo_fp_common";
+extern char *saved_command_line;
 
 static char fp_manu[FP_ID_MAX_LENGTH] = CHIP_UNKNOWN; /* the length of this string should be less than FP_ID_MAX_LENGTH */
 static char lcd_manu[FP_ID_MAX_LENGTH] = CHIP_UNKNOWN; /* the length of this string should be less than FP_ID_MAX_LENGTH */
@@ -86,6 +84,8 @@ static struct fp_data *fp_data_ptr = NULL;
 char g_engineermode_menu_config[ENGINEER_MENU_SELECT_MAXLENTH] = ENGINEER_MENU_DEFAULT;
 
 extern int gf_opticalfp_irq_handler(struct fp_underscreen_info* tp_info);
+
+extern int silfp_opticalfp_irq_handler(struct fp_underscreen_info *tp_info);
 
 static int fp_gpio_parse_parent_dts(struct fp_data *fp_data)
 {
@@ -172,19 +172,6 @@ static struct file_operations fp_id_node_ctrl = {
     .read = fp_id_node_read,
     .write = fp_id_node_write,
 };
-
-#if CONFIG_OPPO_FINGERPRINT_PROJCT != 19696
-int opticalfp_irq_handler(struct fp_underscreen_info* tp_info)
-{
-    fp_vendor_t fpsensor_type = get_fpsensor_type();
-    if (FP_GOODIX_OPTICAL_95 == fpsensor_type) {
-        return gf_opticalfp_irq_handler(tp_info);
-    }
-    else {
-        return FP_UNKNOWN;
-    }
-}
-#endif
 
 static int fp_gpio_parse_child_dts(struct fp_data *fp_data)
 {
@@ -454,9 +441,6 @@ static void __exit oppo_fp_common_exit(void)
     platform_driver_unregister(&oppo_fp_common_driver);
 }
 
-#if CONFIG_OPPO_FINGERPRINT_PROJCT != 19696
-EXPORT_SYMBOL(opticalfp_irq_handler);
-#endif
-
 subsys_initcall(oppo_fp_common_init);
 module_exit(oppo_fp_common_exit)
+

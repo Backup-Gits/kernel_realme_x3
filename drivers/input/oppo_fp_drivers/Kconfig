@@ -10,8 +10,4 @@ config OPPO_FINGERPRINT_QCOM
        default n
        tristate "Fingerprint base on QCOM"
 
-config OPPO_FINGERPRINT_CHIP
-       default 1245
-       tristate "Fingerprint chip"
-
 endif #OPPO_FINGERPRINT
