@@ -263,7 +263,7 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 
 	if ((bl_lvl == 0 && panel->bl_config.bl_level != 0) ||
 		(bl_lvl != 0 && panel->bl_config.bl_level == 0)) {
-		pr_err("backlight level changed %d -> %d\n",panel->bl_config.bl_level, bl_lvl);
+		pr_debug("backlight level changed %d -> %d\n",panel->bl_config.bl_level, bl_lvl);
 		if(bl_lvl != 0 && panel->bl_config.bl_level == 0){
 			if(panel->is_hbm_enabled)
 			       power_change_update_backlight  = 1;
@@ -6949,7 +6949,7 @@ int dsi_display_validate_mode_change(struct dsi_display *display,
 			#ifdef VENDOR_EDIT
 			/*liping-m@PSW.MM.Display.LCD,2019/6/20,for 90FPS LCD */
 			if (cur_mode->timing.refresh_rate != adj_mode->timing.refresh_rate) {
-				pr_err("dsi_cmd set fps: %d\n", adj_mode->timing.refresh_rate);
+				pr_debug("dsi_cmd set fps: %d\n", adj_mode->timing.refresh_rate);
 				WRITE_ONCE(cur_refresh_rate, adj_mode->timing.refresh_rate);
 			}
 			#endif /*VENDOR_EDIT*/
@@ -7090,9 +7090,9 @@ int dsi_display_set_mode(struct dsi_display *display,
 		}
 	}
 
-	pr_info("mdp_transfer_time_us=%d us\n",
+	pr_debug("mdp_transfer_time_us=%d us\n",
 			adj_mode.priv_info->mdp_transfer_time_us);
-	pr_info("hactive= %d, vactive= %d, fps=%d", timing.h_active,
+	pr_debug("hactive= %d, vactive= %d, fps=%d", timing.h_active,
 			timing.v_active, timing.refresh_rate);
 
 	memcpy(display->panel->cur_mode, &adj_mode, sizeof(adj_mode));

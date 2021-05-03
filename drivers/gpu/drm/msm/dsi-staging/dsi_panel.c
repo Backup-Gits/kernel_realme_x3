@@ -63,7 +63,7 @@ static int mdss_tp_black_gesture_status(void){
   	/*default disable tp gesture*/
   	//tp add the interface for check black status to ret
   	ret = tp_gesture_enable_flag();
-  	pr_err("%s:[TP] ret = %d\n", __func__, ret);
+  	pr_debug("%s:[TP] ret = %d\n", __func__, ret);
   	return ret;
   }
 
@@ -82,7 +82,7 @@ void set_esd_check_happened(int val)
 		atomic_set(&esd_check_happened, val);
 	}
 
-	pr_err("%s, esd_check_happened = %d\n", __func__, get_esd_check_happened());
+	pr_debug("%s, esd_check_happened = %d\n", __func__, get_esd_check_happened());
 }
 EXPORT_SYMBOL_GPL(set_esd_check_happened);
 //#endif/*VENDOR_EDIT*/
@@ -434,7 +434,7 @@ static int dsi_panel_reset(struct dsi_panel *panel)
 
 #ifdef VENDOR_EDIT
 	/* Hu Jie@PSW.MM.Display.Lcd.Stability, 2019-09-27, add log at display key evevnt */
-	pr_err("debug for dsi_panel_reset\n");
+	pr_debug("debug for dsi_panel_reset\n");
 #endif
 
     #ifdef VENDOR_EDIT
@@ -558,7 +558,7 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 
 #ifdef VENDOR_EDIT
 	/* Hu Jie@PSW.MM.Display.Lcd.Stability, 2019-09-27, add log at display key evevnt */
-	pr_err("debug for dsi_panel_power_on\n");
+	pr_debug("debug for dsi_panel_power_on\n");
 #endif
 
 #ifdef VENDOR_EDIT
@@ -620,7 +620,6 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 	}
 #endif
 
-
 	goto exit;
 
 error_disable_gpio:
@@ -653,12 +652,12 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 /*Liuchao@BSP.TP.Driver, 2019/12/12, enable black gesture for 19696*/
 	if(19696 == get_project()){    
 		if(esd_check || (0 == mdss_tp_black_gesture_status())){
-			pr_err("[TP] rm to enable reset with tp tp_gesture_enable_flag\n");
+			pr_debug("[TP] rm to enable reset with tp tp_gesture_enable_flag\n");
 			//YunRui.Chen@BSP, 2019/11/29,add for tp cs
 			tp_control_cs_gpio(false);
 			msleep(25);
 		}else{
-			pr_err("[TP] rm to disable reset with tp tp_gesture_enable_flag\n");
+			pr_debug("[TP] rm to disable reset with tp tp_gesture_enable_flag\n");
 		}
 	}
 	else{
@@ -699,7 +698,7 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
     if(19696 == get_project()){
 		if(esd_check || (0 == mdss_tp_black_gesture_status())){
 			tp_black_power_on_ff_flag = 1;
-			pr_err("%s:[TP]tp_black_power_on_ff_flag = %d\n",__func__,tp_black_power_on_ff_flag);
+			pr_debug("%s:[TP]tp_black_power_on_ff_flag = %d\n",__func__,tp_black_power_on_ff_flag);
 			TPS65132_pw_enable(0);
 			rc = dsi_pwr_enable_regulator(&panel->power_info, false);
 			if (rc)
@@ -849,7 +848,7 @@ int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 	if((0==osc_cmd_skip_count) && (is_project(OPPO_19781)||is_project(OPPO_19688)) && \
 			((DSI_CMD_OSC_CLK_MODEO0==type)||(DSI_CMD_OSC_CLK_MODEO1==type))) {
 		osc_cmd_skip_count = 1;
-		pr_err("first setting osc clk is skipped");
+		pr_debug("first setting osc clk is skipped");
 		goto error;
 	}
 
@@ -862,10 +861,10 @@ int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 		|| !strcmp(cmd_set_prop_map[type], "qcom,mdss-dsi-seed-1-command")){
 		/* do nothing */
 	} else if(!strcmp(cmd_set_prop_map[type], "qcom,mdss-dsi-nolp-command")){
-		pr_err("dsi_cmd recovery writ 0x53 reg when nolp\n");
+		pr_debug("dsi_cmd recovery writ 0x53 reg when nolp\n");
 		flag_writ = 3;
 	} else {
-		pr_err("dsi_cmd %s\n", cmd_set_prop_map[type]);
+		pr_debug("dsi_cmd %s\n", cmd_set_prop_map[type]);
 	}
 
 //Liping-M@PSW.MM.Display.LCD.Stability,2019/7/31, add DC 2.0
@@ -4946,7 +4945,7 @@ int dsi_panel_enable(struct dsi_panel *panel)
 
 #ifdef VENDOR_EDIT
 /* Gou shengjun@PSW.MM.Display.Lcd.Stability, 2018-05-31,add to mark power states*/
-	pr_err("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 #endif
 	mutex_lock(&panel->panel_lock);
 
