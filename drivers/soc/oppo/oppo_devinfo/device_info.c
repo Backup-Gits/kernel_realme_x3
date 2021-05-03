@@ -58,6 +58,7 @@ struct devinfo_data {
 };
 
 static struct proc_dir_entry *parent = NULL;
+static bool lcd_registered = false;
 
 static void *device_seq_start(struct seq_file *s, loff_t *pos)
 {
@@ -195,6 +196,13 @@ int register_device_proc(char *name, char *version, char *manufacture)
                         return -ENOENT;
                 }
         }
+
+	if (name == "lcd") {
+		if (lcd_registered)
+			return 0;
+		else
+			lcd_registered = true;
+	}
 
         info = (struct manufacture_info *)kzalloc(sizeof(*info), GFP_KERNEL);
         if (!info) {
