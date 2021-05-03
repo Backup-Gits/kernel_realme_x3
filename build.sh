@@ -4,7 +4,7 @@
 # Copyright (C) 2020-2021 Adithya R.
 
 SECONDS=0 # builtin bash timer
-ZIPNAME="TestKernel-RealmeX3-$(date '+%Y%m%d-%H%M').zip"
+ZIPNAME="QuicksilveR-RealmeX3-$(date '+%Y%m%d-%H%M').zip"
 TC_DIR="$HOME/tc/proton-clang"
 DEFCONFIG="x3_defconfig"
 
