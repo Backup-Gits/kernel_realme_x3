@@ -197,7 +197,7 @@ int register_device_proc(char *name, char *version, char *manufacture)
                 }
         }
 
-	if (name == "lcd") {
+	if (strstr(name, "lcd")) {
 		if (lcd_registered)
 			return 0;
 		else
