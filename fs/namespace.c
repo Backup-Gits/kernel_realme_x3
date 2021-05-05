@@ -31,13 +31,6 @@
 #include "pnode.h"
 #include "internal.h"
 
-#ifdef VENDOR_EDIT
-/* Hui.Fan@PSW.BSP.Kernel.Security, 2017-8-18
- * System partition is not permitted to be mounted with "rw".
- */
-#include <soc/oppo/boot_mode.h>
-#endif /*VENDOR_EDIT*/
-
 /* Maximum number of mounts in a mount namespace */
 unsigned int sysctl_mount_max __read_mostly = 100000;
 
@@ -455,10 +448,10 @@ int mnt_want_write_file_path(struct file *file)
 {
 	int ret;
 
-	sb_start_write(file_inode(file)->i_sb);
+	sb_start_write(file->f_path.mnt->mnt_sb);
 	ret = __mnt_want_write_file(file);
 	if (ret)
-		sb_end_write(file_inode(file)->i_sb);
+		sb_end_write(file->f_path.mnt->mnt_sb);
 	return ret;
 }
 
@@ -549,8 +542,7 @@ void __mnt_drop_write_file(struct file *file)
 
 void mnt_drop_write_file_path(struct file *file)
 {
-	__mnt_drop_write_file(file);
-	sb_end_write(file_inode(file)->i_sb);
+	mnt_drop_write(file->f_path.mnt);
 }
 
 void mnt_drop_write_file(struct file *file)
@@ -2869,20 +2861,6 @@ long do_mount(const char *dev_name, const char __user *dir_name,
 	struct path path;
 	unsigned int mnt_flags = 0, sb_flags;
 	int retval = 0;
-
-#if defined(VENDOR_EDIT) && defined(OPPO_DISALLOW_KEY_INTERFACES)
-/* Hui.Fan@PSW.BSP.Kernel.Security, 2017-8-18
- * System partition is not permitted to be mounted with "rw".
- */
- 	char dname[16] = {0};
-	if (dir_name != NULL && copy_from_user(dname,dir_name,8) == 0){
-		if ((!strncmp(dname, "/system", 8) || !strncmp(dname, "/vendor", 8))&& !(flags & MS_RDONLY)
-			&& (get_boot_mode() == MSM_BOOT_MODE__NORMAL)) {
-			printk(KERN_ERR "[OPPO]System partition is not permitted to be mounted as readwrite\n");
-			return -EPERM;
-		}
-	}
-#endif /* VENDOR_EDIT */
 
 	/* Discard magic */
 	if ((flags & MS_MGC_MSK) == MS_MGC_VAL)
