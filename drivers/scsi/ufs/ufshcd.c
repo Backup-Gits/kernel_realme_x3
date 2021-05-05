@@ -55,7 +55,6 @@
 /*Hank.liu@PSW.BSP Kernel IO Latency  2019-03-19,ufs slot status */
 unsigned long ufs_outstanding;
 #endif
-#ifdef CONFIG_DEBUG_FS
 
 #if defined(VENDOR_EDIT) && defined(CONFIG_UFSTW)
 //hank.liu@Tech.Storage.UFS, 2019-10-11 add for ufsplus status node in /proc/devinfo
@@ -64,6 +63,8 @@ EXPORT_SYMBOL(ufsplus_tw_status);
 int ufsplus_hpb_status = 0;
 EXPORT_SYMBOL(ufsplus_hpb_status);
 #endif
+
+#ifdef CONFIG_DEBUG_FS
 
 static int ufshcd_tag_req_type(struct request *rq)
 {

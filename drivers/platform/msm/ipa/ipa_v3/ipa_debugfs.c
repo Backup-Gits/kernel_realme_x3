@@ -3401,12 +3401,14 @@ fail:
 }
 
 #else /* !CONFIG_DEBUG_FS */
+#include <linux/ipa_eth.h>
 #define INVALID_NO_OF_CHAR (-1)
 void ipa3_debugfs_pre_init(void) {}
 void ipa3_debugfs_post_init(void) {}
 void ipa3_debugfs_remove(void) {}
 void ipa3_eth_debugfs_init(void) {}
 void ipa3_eth_debugfs_add(struct ipa_eth_client *client) {}
+void ipa3_eth_debugfs_add_node(struct ipa_eth_client *client) {}
 int _ipa_read_ep_reg_v3_0(char *buf, int max_len, int pipe)
 {
 	return INVALID_NO_OF_CHAR;

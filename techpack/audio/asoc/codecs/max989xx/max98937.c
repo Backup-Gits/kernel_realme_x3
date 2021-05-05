@@ -581,6 +581,8 @@ struct param_info {
 	int q_val;
 };
 
+#endif
+
 #ifndef VENDOR_EDIT
 /*zhao.Pan@PSW.MM.AudioDriver.SmartPA, 2019/07/31,
  * add for applying calibration range and result to APP */
@@ -609,8 +611,6 @@ struct param_info {
 #define DEFAULT_RANGE_MIN  (5000)  // mOhms
 #define DEFAULT_RANGE_MAX  (8000)  // mOhms
 #endif /* VENDOR_EDIT */
-
-#endif
 
 static struct {
 	bool l_calib_stat;
@@ -826,6 +826,7 @@ static int max989xx_calib_get(uint32_t* calib_value, int ch)
 	return found;
 }
 
+#ifdef CONFIG_DEBUG_FS
 static int max989xx_calib_save (uint32_t calib_value, int ch)
 {
 	struct file *pfile = NULL;
@@ -866,6 +867,7 @@ static int max989xx_calib_save (uint32_t calib_value, int ch)
 
 	return ret;
 }
+#endif
 
 #ifndef VENDOR_EDIT
 /*zhao.Pan@PSW.MM.AudioDriver.SmartPA, 2019/07/31,
