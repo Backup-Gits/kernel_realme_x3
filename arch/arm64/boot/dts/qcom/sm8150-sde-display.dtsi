@@ -934,7 +934,7 @@
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 
-//	qcom,dsi-dyn-clk-enable;
+	qcom,dsi-dyn-clk-enable;
 	qcom,dsi-dyn-clk-list = <1104393600 1114747290>;
 
 	qcom,esd-check-enabled;
@@ -980,7 +980,7 @@
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 
-//	qcom,dsi-dyn-clk-enable;
+	qcom,dsi-dyn-clk-enable;
 	qcom,dsi-dyn-clk-list = <1104393600 1114747290>;
 
 	qcom,esd-check-enabled;
