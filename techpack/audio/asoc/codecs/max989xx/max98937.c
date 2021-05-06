@@ -23,9 +23,6 @@
 #include <linux/debugfs.h>
 #include "max98937.h"
 #ifdef VENDOR_EDIT
-/*zhao.Pan@PSW.MM.AudioDriver.SmartPA, 2019/09/19,
- * add for smartpa calibration mm kevent fb*/
-#include <linux/oppo_mm_kevent_fb.h>
 #include <linux/regulator/qcom_pm8008-regulator.h>
 #endif /* VENDOR_EDIT */
 #ifdef VENDOR_EDIT
@@ -1900,7 +1897,6 @@ static int max98927_stream_mute(struct snd_soc_dai *codec_dai, int mute, int str
 	int ret = 0;
 	int retry = 0;
 	char pkg_str[64] = "";
-	unsigned char fb_str[150] = "";
 	#endif /* VENDOR_EDIT */
 
 	pr_info("%s--- stream %d, mute %d \n", __func__, stream, mute);
@@ -1982,9 +1978,6 @@ static int max98927_stream_mute(struct snd_soc_dai *codec_dai, int mute, int str
 
 					if (ret != 0) {
 						scnprintf(pkg_str, sizeof(pkg_str), "%s: i2c err %d!\n", __func__, ret);
-						scnprintf(fb_str, sizeof(fb_str), "NULL$$EventID@@%d$$EventData@@%d$$PackageName@@%s",
-								OPPO_MM_AUDIO_EVENT_ID_SMARTPA_IIC_ERR, ret, pkg_str);
-						upload_mm_kevent_fb_data(OPPO_MM_DIRVER_FB_EVENT_MODULE_AUDIO,fb_str);
 					}
 
 					for (retry = 0 ; retry < 3 && ret == -71; retry++) {
